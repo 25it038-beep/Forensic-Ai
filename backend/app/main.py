@@ -192,9 +192,9 @@ def validate_email_text(text: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid or empty email text.")
     return sanitized_text
 
-@app.get("/")
-def root() -> Dict[str, str]:
-    return {"status": "healthy"}
+@app.get("/api")
+def api_root() -> Dict[str, str]:
+    return {"status": "healthy", "service": "forensic-ai-api", "version": "3.0"}
 
 @app.get("/health")
 def health() -> Dict[str, str]:
@@ -915,17 +915,41 @@ def download_extension():
         raise HTTPException(status_code=500, detail=f"Failed to package extension: {e}")
 
 from fastapi.staticfiles import StaticFiles
-frontend_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "dist")
+
+# Resolve static/dist directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+frontend_dist_path = os.path.join(BASE_DIR, "static", "dist")
+
 if os.path.exists(frontend_dist_path):
     assets_path = os.path.join(frontend_dist_path, "assets")
     if os.path.exists(assets_path):
         app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
-    @app.get("/{full_path:path}", response_class=HTMLResponse)
-    async def serve_frontend(full_path: str):
-        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json") or full_path.startswith("health"):
-            raise HTTPException(status_code=404, detail="Not Found")
+    
+    @app.get("/", response_class=HTMLResponse)
+    async def serve_root():
         index_file = os.path.join(frontend_dist_path, "index.html")
         if os.path.exists(index_file):
             with open(index_file, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
-        return HTMLResponse(content="Frontend build index.html not found.", status_code=404)
+        return HTMLResponse(content="Frontend index.html not found.", status_code=404)
+
+    @app.get("/{full_path:path}", response_class=HTMLResponse)
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("docs") or full_path.startswith("openapi.json") or full_path.startswith("health"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        
+        # Check if requesting a direct static file (e.g. favicon.svg, robots.txt)
+        candidate = os.path.join(frontend_dist_path, full_path)
+        if os.path.isfile(candidate):
+            with open(candidate, "rb") as f:
+                return Response(content=f.read())
+                
+        index_file = os.path.join(frontend_dist_path, "index.html")
+        if os.path.exists(index_file):
+            with open(index_file, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+        return HTMLResponse(content="Frontend index.html not found.", status_code=404)
+else:
+    @app.get("/")
+    def fallback_root():
+        return {"status": "healthy", "service": "forensic-ai-backend", "message": "Backend API operational. Deploy frontend or use /docs."}

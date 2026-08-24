@@ -26,8 +26,8 @@ COPY backend/dataset/ ./dataset/
 COPY backend/training/ ./training/
 RUN python training/train.py
 
-COPY --from=frontend-builder /frontend/dist/ ./static/dist/
 COPY static/ ./static/
+COPY --from=frontend-builder /frontend/dist/ ./static/dist/
 
 EXPOSE 10000
 
