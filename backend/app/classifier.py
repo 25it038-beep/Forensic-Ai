@@ -63,10 +63,44 @@ class PhishingClassifier:
                 self.model = joblib.load(MODEL_PATH)
                 self.vectorizer = joblib.load(VECTORIZER_PATH)
                 logger.info("ML model loaded from %s and %s", MODEL_PATH, VECTORIZER_PATH)
+                return
             except Exception as exc:
-                logger.warning("Model loading failed: %s. Falling back to rule-based analysis.", exc)
-        else:
-            logger.warning("Model files missing at %s or %s. Falling back to rule-based analysis.", MODEL_PATH, VECTORIZER_PATH)
+                logger.warning("Model loading failed: %s. Re-training on the fly.", exc)
+        
+        # Auto-train immediately if model files are absent
+        try:
+            logger.info("Model files not found. Auto-training ML classifier on startup...")
+            self._auto_train()
+        except Exception as exc:
+            logger.warning("Auto-training failed: %s. Falling back to rule-based analysis.", exc)
+
+    def _auto_train(self):
+        import pandas as pd
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.linear_model import LogisticRegression
+
+        dataset_path = os.path.join(BASE_DIR, "dataset", "emails.csv")
+        if not os.path.exists(dataset_path):
+            dataset_path = os.path.join(os.path.dirname(BASE_DIR), "dataset", "emails.csv")
+        
+        if os.path.exists(dataset_path):
+            df = pd.read_csv(dataset_path)
+            df['cleaned_text'] = df['text'].apply(preprocess_text)
+            
+            vec = TfidfVectorizer(max_features=5000, ngram_range=(1, 2), min_df=1)
+            X = vec.fit_transform(df['cleaned_text'])
+            y = df['label']
+            
+            clf = LogisticRegression(max_iter=1000, class_weight='balanced', C=2.0)
+            clf.fit(X, y)
+            
+            self.model = clf
+            self.vectorizer = vec
+            
+            os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+            joblib.dump(clf, MODEL_PATH)
+            joblib.dump(vec, VECTORIZER_PATH)
+            logger.info("Successfully trained and saved ML model to %s and %s", MODEL_PATH, VECTORIZER_PATH)
 
     def get_fallback_prediction(self, indicators: Dict[str, Any]) -> Tuple[str, float, float]:
         """Fallback rule-based classification if ML model is not loaded."""
