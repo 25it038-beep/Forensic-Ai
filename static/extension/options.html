@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Forensic AI — Options</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0; padding:0; font-family:ui-monospace,Menlo,Consolas,monospace; background:#020617; color:#e2e8f0; min-width:380px}
+  .wrap{max-width:520px; margin:0 auto; padding:20px}
+  h1{font:800 13px/1 ui-sans-serif; letter-spacing:.12em; color:#00f2fe; margin:0 0 4px}
+  .sub{font-size:10px; color:#64748b; letter-spacing:.06em; margin-bottom:16px}
+  .card{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:16px; margin-bottom:14px}
+  label{font-size:10px; font-weight:700; letter-spacing:.08em; color:#94a3b8; display:block; margin:10px 0 6px}
+  input[type=text],select{width:100%; padding:10px 11px; border-radius:8px; background:#020617; border:1px solid #1e293b; color:#f1f5f9; font:12px ui-monospace}
+  input:focus,select:focus{outline:none; border-color:rgba(0,242,254,.45); box-shadow:0 0 0 3px rgba(0,242,254,.15)}
+  .row{display:flex; gap:10px; align-items:center}
+  .toggle{appearance:none; width:38px; height:22px; background:#1e293b; border-radius:999px; position:relative; cursor:pointer; transition:.2s; flex-shrink:0}
+  .toggle:checked{background:rgba(0,242,254,.9)} .toggle::after{content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; background:#fff; border-radius:50%; transition:.2s}
+  .toggle:checked::after{transform:translateX(16px)}
+  .hint{font-size:10px; color:#64748b; margin-top:4px; line-height:1.4}
+  button{padding:10px 14px; border-radius:8px; border:1px solid transparent; font:700 11px ui-sans-serif; letter-spacing:.06em; cursor:pointer}
+  .primary{background:linear-gradient(90deg,#00f2fe,#4facfe); color:#001018; flex:1}
+  .ghost{background:#0f172a; color:#94a3b8; border-color:#1e293b}
+  #status{font-size:11px; text-align:center; min-height:16px; margin-top:8px}
+  .ok{color:#22c55e} .err{color:#ef4444} .muted{color:#64748b}
+  code{background:#0f172a; border:1px solid #1e293b; padding:2px 5px; border-radius:5px; font-size:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FORENSIC AI — OPTIONS</h1>
+  <div class="sub">Configure your SOC extension. Changes sync via <code>chrome.storage.local</code>.</div>
+
+  <div class="card">
+    <label for="apiUrl">BACKEND API URL</label>
+    <input id="apiUrl" type="text" placeholder="https://efinal-vpxh.onrender.com" spellcheck="false">
+    <div class="hint">Must point to your FastAPI backend. Default is the hosted Render instance. For local dev use <code>http://127.0.0.1:8000</code>. Must include scheme, no trailing slash.</div>
+    <div id="health" class="hint muted" style="margin-top:8px">Health: checking…</div>
+  </div>
+
+  <div class="card">
+    <label for="token">JWT TOKEN (optional — for private scans)</label>
+    <input id="token" type="text" placeholder="eyJhbGci... from SOC Account → Login" spellcheck="false">
+    <div class="hint">Paste token from Account tab login. When set, extension scans are saved to your private account (not anonymous). Clear to scan anonymously.</div>
+  </div>
+
+  <div class="card">
+    <label>BEHAVIOR</label>
+    <div class="row" style="justify-content:space-between; margin:8px 0">
+      <div>
+        <div style="font-size:11px; font-weight:700">Auto-open popup badge</div>
+        <div class="hint" style="margin:0">Show SCAN badge after right-click</div>
+      </div>
+      <input id="badge" type="checkbox" class="toggle" checked>
+    </div>
+    <div class="row" style="justify-content:space-between; margin:8px 0">
+      <div>
+        <div style="font-size:11px; font-weight:700">Desktop notifications</div>
+        <div class="hint" style="margin:0">Notify when Phishing detected</div>
+      </div>
+      <input id="notify" type="checkbox" class="toggle" checked>
+    </div>
+    <div class="row" style="justify-content:space-between; margin:8px 0">
+      <div>
+        <div style="font-size:11px; font-weight:700">Inject Gmail/Outlook button</div>
+        <div class="hint" style="margin:0">Content script injects Scan button in webmail</div>
+      </div>
+      <input id="inject" type="checkbox" class="toggle" checked>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="sensitivity">HEURISTIC SENSITIVITY (offline fallback)</label>
+    <select id="sensitivity">
+      <option value="balanced">Balanced (default)</option>
+      <option value="strict">Strict — flag more</option>
+      <option value="permissive">Permissive — flag less</option>
+    </select>
+    <div class="hint">Only affects offline heuristic when backend unreachable. Balanced = 1 signal → Suspicious.</div>
+  </div>
+
+  <div class="row">
+    <button id="save" class="primary">SAVE OPTIONS</button>
+    <button id="reset" class="ghost">RESET</button>
+  </div>
+  <div id="status" class="muted"></div>
+  <div class="hint" style="text-align:center; margin-top:12px">Extension v2.0.0 · MV3 · <a href="#" id="openPopup" style="color:#00f2fe">open popup</a> · <a href="https://github.com" target="_blank" style="color:#64748b">docs</a></div>
+</div>
+<script src="options.js"></script>
+</body>
+</html>

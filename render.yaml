@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: emailsupcious
+    runtime: docker
+    rootDir: .
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: http://localhost:5173,http://127.0.0.1:5173,https://*.vercel.app,https://*.onrender.com,https://*.netlify.app
+      - key: PYTHONUNBUFFERED
+        value: 1

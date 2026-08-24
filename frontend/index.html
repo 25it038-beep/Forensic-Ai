@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Phishing Email Detector - Threat Operations Center</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      html, body { background: #080a0f; margin: 0; padding: 0; }
+      [data-theme="light"] body { background: #f6f7f9; }
+      /* Avoid FOUC — hide until theme applied */
+      html:not([data-theme]) { visibility: hidden; }
+    </style>
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('forensic_settings_v2');
+          var t = raw ? JSON.parse(raw).theme : 'dark';
+          var eff = t === 'system' ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t;
+          document.documentElement.dataset.theme = eff;
+          document.documentElement.style.colorScheme = eff;
+          if (eff === 'light') document.documentElement.classList.add('light');
+          var d = raw ? JSON.parse(raw).density : 'comfortable';
+          if (d) document.documentElement.dataset.density = d;
+          document.documentElement.style.visibility = 'visible';
+        } catch (e) { document.documentElement.style.visibility = 'visible'; }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

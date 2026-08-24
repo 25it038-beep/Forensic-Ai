@@ -1,0 +1,2 @@
+#forensic-ai-inject-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+#forensic-ai-inject-btn:active { transform: translateY(0); filter: brightness(.98); }

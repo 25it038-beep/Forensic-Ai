@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forensic AI — SOC</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="logo-icon">🛡️</span>
+      <div>
+        <div class="logo-text">FORENSIC AI</div>
+        <div class="logo-sub">SOC v2.0 · MV3</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="health-dot" class="health-dot" title="Backend health"></span>
+      <button id="settings-btn" class="icon-btn" title="Options">⚙</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button id="mode-text" class="mode-btn active">TEXT / EMAIL</button>
+      <button id="mode-url" class="mode-btn">URL</button>
+      <button id="mode-extract" class="mode-btn" title="Extract visible email from Gmail/Outlook">EXTRACT</button>
+    </div>
+
+    <!-- Input -->
+    <div id="input-view">
+      <div class="info-badge" id="source-badge" style="display:none"></div>
+      <textarea id="email-text" placeholder="Paste email with headers or highlight text → right-click → Scan selection"></textarea>
+      <input id="url-input" type="text" placeholder="https://suspicious.example/verify" style="display:none">
+      <div class="action-row">
+        <button id="scan-btn">ANALYZE CONTENT</button>
+        <button id="clear-btn" class="ghost-btn" title="Clear">✕</button>
+      </div>
+      <div class="meta-row">
+        <span>Backend: <code id="api-url-display">…</code></span>
+        <a href="#" id="api-config-link">change</a>
+      </div>
+      <!-- Recent history when idle -->
+      <div id="history-section" class="history-section">
+        <div class="section-title">RECENT SCANS (local)</div>
+        <div id="history-list" class="history-list"></div>
+        <div id="history-empty" class="history-empty">No local scans yet. Results are stored for 10 entries.</div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading-view" style="display:none">
+      <div class="spinner"></div>
+      <p class="loading-text">RUNNING AI + LIVE THREAT INTEL…</p>
+      <p class="loading-sub">VT · WHOIS · DNS · SSL · Geo · BEC</p>
+    </div>
+
+    <!-- Results -->
+    <div id="result-view" style="display:none">
+      <div id="result-banner" class="result-banner">
+        <span id="result-shield">🛡️</span>
+        <div>
+          <div id="result-status" class="status-title">SAFE</div>
+          <div class="status-subtitle">Risk <span id="result-risk">0</span>/100 · Conf <span id="result-conf">—</span></div>
+        </div>
+        <span id="offline-badge" class="offline-badge" style="display:none">OFFLINE</span>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="verdict">Verdict</button>
+        <button class="tab" data-tab="intel">Intel</button>
+        <button class="tab" data-tab="geo">Geo</button>
+      </div>
+
+      <div id="tab-verdict" class="tab-panel active">
+        <div class="section-title">DIAGNOSTIC ANALYSIS</div>
+        <div id="result-explanation" class="explanation-box"></div>
+        <div class="section-title">INDICATORS</div>
+        <div id="result-indicators" class="indicators-list"></div>
+        <div id="result-flags" style="margin-top:10px"></div>
+      </div>
+
+      <div id="tab-intel" class="tab-panel">
+        <div id="intel-content" class="intel-grid"></div>
+        <div id="bec-box" style="margin-top:10px"></div>
+      </div>
+
+      <div id="tab-geo" class="tab-panel">
+        <div id="geo-content" class="geo-box"></div>
+        <div class="hint">Open full SOC dashboard for satellite map & hop trace.</div>
+      </div>
+
+      <div class="result-actions">
+        <button id="reset-btn">SCAN NEW</button>
+        <button id="open-dashboard" class="ghost-btn">OPEN DASHBOARD →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span><span class="status-online">● ONLINE</span> <span id="footer-mode" class="muted">balanced</span></span>
+    <span> очереди <span id="queue-count">0</span> · <a href="#" id="open-options">options</a></span>
+  </div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>
