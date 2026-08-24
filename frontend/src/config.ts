@@ -1,18 +1,53 @@
 import axios, { AxiosError } from 'axios';
 
-const RAW_API_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').trim();
-
 // Clean trailing slash if present
-export const cleanApiUrl = (url: string) => url.endsWith('/') ? url.slice(0, -1) : url;
+export const cleanApiUrl = (url: string) => (url ? url.trim().replace(/\/+$/, '') : '');
 
-export const API_URL = cleanApiUrl(RAW_API_URL);
-// In production the API must be same-origin or explicitly configured.
-// In development, if no env is set, the Vite proxy will forward /api to the backend.
-export const API_URLS: string[] = API_URL ? [API_URL] : [''];
+export const RAW_API_URL = cleanApiUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '');
+export const API_URL = RAW_API_URL;
 
-if (!RAW_API_URL && typeof window !== 'undefined' && import.meta.env.PROD) {
-  console.warn('[config] VITE_API_URL is not set. Using same-origin /api. Set VITE_API_URL to your backend URL in production (e.g. https://api.example.com).');
+/**
+ * Dynamically resolves all candidate API URLs in order of priority:
+ * 1. User override in localStorage (Settings tab)
+ * 2. Vite Build-time environment variable (VITE_API_URL)
+ * 3. Same-origin fallback (for Docker all-in-one or reverse proxy)
+ */
+export function getActiveApiUrls(): string[] {
+  const candidates: string[] = [];
+
+  // 1. Check user custom setting in localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('forensic_settings_v2');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.apiUrl && typeof parsed.apiUrl === 'string' && parsed.apiUrl.trim()) {
+          candidates.push(cleanApiUrl(parsed.apiUrl));
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Add build-time env var if present
+  if (RAW_API_URL && !candidates.includes(RAW_API_URL)) {
+    candidates.push(RAW_API_URL);
+  }
+
+  // 3. Add default live production backend fallback
+  const DEFAULT_PROD_URL = 'https://forensic-ai-2.onrender.com';
+  if (!candidates.includes(DEFAULT_PROD_URL)) {
+    candidates.push(DEFAULT_PROD_URL);
+  }
+
+  // 4. Add same-origin fallback
+  if (!candidates.includes('')) {
+    candidates.push('');
+  }
+
+  return candidates;
 }
+
+export const API_URLS: string[] = getActiveApiUrls();
 
 function getEndpointUrl(path: string, baseUrl: string) {
   const normalizedBase = baseUrl.replace(/\/$/, '');
@@ -127,8 +162,9 @@ function getAuthHeader(): Record<string, string> {
 export async function apiRequest<T>(path: string, options: { method?: 'get' | 'post'; data?: any; headers?: Record<string, string>; timeout?: number } = {}): Promise<T> {
   const method = options.method ?? 'get';
   let lastError: unknown;
+  const urlsToTry = getActiveApiUrls();
 
-  for (const baseUrl of API_URLS) {
+  for (const baseUrl of urlsToTry) {
     try {
       const response = await axios<T>({
         method,
@@ -160,7 +196,7 @@ export function parseApiError(error: any): string {
       if (axiosError.code === 'ECONNABORTED') {
         return `Request Timeout: The request to the security engine timed out. Please try again.`;
       }
-      return `Network Connectivity Error: The security server is currently unreachable. The app will try the next available backend and can also use a local fallback scan.`;
+      return `Network Connectivity Error: The security server is currently unreachable. Check your backend URL or internet connection.`;
     }
 
     const status = axiosError.response.status;
