@@ -1,48 +1,60 @@
 import axios, { AxiosError } from 'axios';
 
-// Clean trailing slash if present
 export const cleanApiUrl = (url: string) => (url ? url.trim().replace(/\/+$/, '') : '');
 
+export const DEFAULT_PROD_URL = 'https://forensic-ai-2.onrender.com';
 export const RAW_API_URL = cleanApiUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '');
-export const API_URL = RAW_API_URL;
+export const API_URL = RAW_API_URL || DEFAULT_PROD_URL;
 
 /**
  * Dynamically resolves all candidate API URLs in order of priority:
- * 1. User override in localStorage (Settings tab)
- * 2. Vite Build-time environment variable (VITE_API_URL)
- * 3. Same-origin fallback (for Docker all-in-one or reverse proxy)
+ * 1. Vite Build-time environment variable (VITE_API_URL)
+ * 2. Default production backend (https://forensic-ai-2.onrender.com)
+ * 3. User override in localStorage (Settings tab)
+ * 4. Same-origin fallback (for Docker all-in-one or reverse proxy)
  */
 export function getActiveApiUrls(): string[] {
   const candidates: string[] = [];
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 
-  // 1. Check user custom setting in localStorage
+  // Helper to filter out insecure HTTP urls on HTTPS sites (prevents mixed-content error)
+  const addCandidate = (url: string) => {
+    const cleaned = cleanApiUrl(url);
+    if (!cleaned) {
+      if (!candidates.includes('')) candidates.push('');
+      return;
+    }
+    if (isHttps && cleaned.startsWith('http://')) {
+      return; // Skip insecure HTTP on HTTPS origins
+    }
+    if (!candidates.includes(cleaned)) {
+      candidates.push(cleaned);
+    }
+  };
+
+  // 1. Env variable
+  if (RAW_API_URL) {
+    addCandidate(RAW_API_URL);
+  }
+
+  // 2. Default Live Production URL
+  addCandidate(DEFAULT_PROD_URL);
+
+  // 3. User override in localStorage
   if (typeof window !== 'undefined') {
     try {
       const raw = localStorage.getItem('forensic_settings_v2');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.apiUrl && typeof parsed.apiUrl === 'string' && parsed.apiUrl.trim()) {
-          candidates.push(cleanApiUrl(parsed.apiUrl));
+          addCandidate(parsed.apiUrl);
         }
       }
     } catch {}
   }
 
-  // 2. Add build-time env var if present
-  if (RAW_API_URL && !candidates.includes(RAW_API_URL)) {
-    candidates.push(RAW_API_URL);
-  }
-
-  // 3. Add default live production backend fallback
-  const DEFAULT_PROD_URL = 'https://forensic-ai-2.onrender.com';
-  if (!candidates.includes(DEFAULT_PROD_URL)) {
-    candidates.push(DEFAULT_PROD_URL);
-  }
-
-  // 4. Add same-origin fallback
-  if (!candidates.includes('')) {
-    candidates.push('');
-  }
+  // 4. Same-origin fallback
+  addCandidate('');
 
   return candidates;
 }
@@ -171,7 +183,7 @@ export async function apiRequest<T>(path: string, options: { method?: 'get' | 'p
         url: getEndpointUrl(path, baseUrl),
         data: options.data,
         headers: { ...getAuthHeader(), ...(options.headers || {}) },
-        timeout: options.timeout ?? 10000
+        timeout: options.timeout ?? 12000
       });
       return response.data;
     } catch (error) {
