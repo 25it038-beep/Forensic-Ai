@@ -8,37 +8,40 @@ export const API_URL = RAW_API_URL || DEFAULT_PROD_URL;
 
 /**
  * Dynamically resolves all candidate API URLs in order of priority:
- * 1. Vite Build-time environment variable (VITE_API_URL)
- * 2. Default production backend (https://forensic-ai-2.onrender.com)
+ * 1. Default Production Backend (https://forensic-ai-2.onrender.com)
+ * 2. Vite Build-time environment variable (VITE_API_URL)
  * 3. User override in localStorage (Settings tab)
- * 4. Same-origin fallback (for Docker all-in-one or reverse proxy)
+ * 4. Same-origin fallback (only if not on a known static site host)
  */
 export function getActiveApiUrls(): string[] {
   const candidates: string[] = [];
   const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
-  // Helper to filter out insecure HTTP urls on HTTPS sites (prevents mixed-content error)
   const addCandidate = (url: string) => {
     const cleaned = cleanApiUrl(url);
     if (!cleaned) {
+      if (hostname.includes('forensic-ai-1') || hostname.includes('vercel.app') || hostname.includes('netlify.app')) {
+        return;
+      }
       if (!candidates.includes('')) candidates.push('');
       return;
     }
     if (isHttps && cleaned.startsWith('http://')) {
-      return; // Skip insecure HTTP on HTTPS origins
+      return;
     }
     if (!candidates.includes(cleaned)) {
       candidates.push(cleaned);
     }
   };
 
-  // 1. Env variable
+  // 1. Primary Live Production Backend
+  addCandidate(DEFAULT_PROD_URL);
+
+  // 2. Build-time Env variable
   if (RAW_API_URL) {
     addCandidate(RAW_API_URL);
   }
-
-  // 2. Default Live Production URL
-  addCandidate(DEFAULT_PROD_URL);
 
   // 3. User override in localStorage
   if (typeof window !== 'undefined') {
@@ -183,23 +186,24 @@ export async function apiRequest<T>(path: string, options: { method?: 'get' | 'p
         url: getEndpointUrl(path, baseUrl),
         data: options.data,
         headers: { ...getAuthHeader(), ...(options.headers || {}) },
-        timeout: options.timeout ?? 12000
+        timeout: options.timeout ?? 15000
       });
       return response.data;
     } catch (error) {
       lastError = error;
-      if (axios.isAxiosError(error) && error.response && error.response.status >= 400 && error.response.status < 500) {
-        throw error;
+      if (axios.isAxiosError(error) && error.response) {
+        const status = error.response.status;
+        if (status === 400 || status === 401 || status === 403 || status === 422) {
+          throw error;
+        }
       }
+      // Continue to next candidate URL
     }
   }
 
   throw lastError ?? new Error('Unable to reach the security backend.');
 }
 
-/**
- * Parses axios or generic errors into human-readable, highly detailed strings.
- */
 export function parseApiError(error: any): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError;
@@ -238,9 +242,6 @@ export function parseApiError(error: any): string {
   return 'An unexpected communication error occurred. Check the console for logs.';
 }
 
-/**
- * Executes an async API call with automatic retry logic (exponential backoff).
- */
 export async function executeWithRetry<T>(
   fn: () => Promise<T>,
   retries = 2,
