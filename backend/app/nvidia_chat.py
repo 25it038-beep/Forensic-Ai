@@ -7,14 +7,14 @@ from typing import List, Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/muse-glimmer-30b")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 # Primary key from env; fallback to provided key for demo (do not expose to frontend)
 DEFAULT_NVIDIA_KEY = "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"
 
 def get_nvidia_key() -> Optional[str]:
     return os.getenv("NVIDIA_API_KEY") or os.getenv("NVAPI_KEY") or DEFAULT_NVIDIA_KEY
 
-def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, top_p: float = 0.95, max_tokens: int = 2048) -> str:
+def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, top_p: float = 0.95, max_tokens: int = 512) -> str:
     """
     Call NVIDIA integrate API (OpenAI compatible) with meta/muse-glimmer-30b
     messages: list of {"role": "user"/"assistant"/"system", "content": "..."}
@@ -38,7 +38,7 @@ def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, t
         "stream": False
     }
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp = requests.post(url, headers=headers, json=payload, timeout=15)
         if resp.status_code != 200:
             logger.warning(f"NVIDIA API error {resp.status_code}: {resp.text[:500]}")
             raise Exception(f"NVIDIA API {resp.status_code}: {resp.text[:300]}")

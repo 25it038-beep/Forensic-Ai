@@ -49,7 +49,7 @@ export const ChatPanel: React.FC = () => {
         scan_context: scanContext,
         use_history: true
       };
-      const res = await apiRequest<{ reply: string }>("/api/chat", { method: "post", data: payload, timeout: 30000 });
+      const res = await apiRequest<{ reply: string }>("/api/chat", { method: "post", data: payload, timeout: 60000 });
       setMessages(m => [...m, { role: "assistant", content: res.reply, at: Date.now() }]);
     } catch (e: any) {
       setMessages(m => [...m, { role: "assistant", content: `⚠️ SOC Support error: ${parseApiError(e)}`, at: Date.now() }]);
