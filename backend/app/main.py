@@ -266,10 +266,17 @@ async def predict_email(
     if urls:
         first_url = urls[0]
         domain = re.sub(r'^https?://', '', first_url).split('/')[0].split(':')[0].lower()
+    elif "@" in detected_sender:
+        domain = detected_sender.split("@")[-1].replace(">", "").strip().lower()
+        first_url = f"https://{domain}" if domain else ""
+    else:
+        first_url = ""
+
+    if domain:
         vt_result_dict, whois_result_dict, url_forensics_dict = await asyncio.gather(
-            run_in_threadpool(check_virustotal, first_url),
+            run_in_threadpool(check_virustotal, first_url or f"https://{domain}"),
             run_in_threadpool(get_whois_info, domain),
-            run_in_threadpool(analyze_url_forensics, first_url, domain)
+            run_in_threadpool(analyze_url_forensics, first_url or f"https://{domain}", domain)
         )
         if vt_result_dict:
             vt_result = VirusTotalResult(**vt_result_dict)
