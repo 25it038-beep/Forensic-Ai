@@ -212,27 +212,41 @@ export function parseApiError(error: any): string {
     const axiosError = error as AxiosError;
 
     if (!axiosError.response) {
-      if (axiosError.code === 'ECONNABORTED') {
-        return `Request Timeout: The request to the security engine timed out. Please try again.`;
+      if (axiosError.code === 'ECONNABORTED' || axiosError.message?.toLowerCase().includes('timeout')) {
+        return 'Request Timeout: The request to the security engine timed out. Please try again.';
       }
-      return `Network Connectivity Error: The security server is currently unreachable. Check your backend URL or internet connection.`;
+      return 'Network Connectivity Error: The security server is currently unreachable. Check your backend URL or internet connection.';
     }
 
     const status = axiosError.response.status;
     const data = axiosError.response.data as any;
-    const serverMessage = data?.detail || data?.message;
+    
+    let serverMessage = '';
+    if (typeof data?.detail === 'string') {
+      serverMessage = data.detail;
+    } else if (Array.isArray(data?.detail)) {
+      serverMessage = data.detail.map((d: any) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d))).join(', ');
+    } else if (typeof data?.message === 'string') {
+      serverMessage = data.message;
+    } else if (data && typeof data === 'object') {
+      try {
+        serverMessage = Object.entries(data).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('; ');
+      } catch {
+        serverMessage = String(data);
+      }
+    }
 
     if (status === 401 || status === 403) {
-      return `Access Denied (${status}): You do not have permission to access this threat resource.`;
+      return `Access Denied (${status}): ${serverMessage || 'Authentication required.'}`;
     }
     if (status === 404) {
-      return `Not Found (404): The requested threat scanning endpoint does not exist on the server.`;
+      return `Not Found (404): ${serverMessage || 'The requested endpoint does not exist.'}`;
     }
     if (status === 429) {
-      return `Rate Limit Exceeded (429): You have sent too many scan requests. Please wait a moment before trying again.`;
+      return `Rate Limit Exceeded (429): You have sent too many requests. Please wait a moment.`;
     }
     if (status >= 500) {
-      return `Internal Server Error (${status}): The security engine encountered an internal exception: ${serverMessage || 'Unknown error'}.`;
+      return `Internal Server Error (${status}): ${serverMessage || 'The server encountered an unexpected exception.'}`;
     }
 
     return serverMessage || `API Error (${status}): ${axiosError.message}`;
@@ -242,7 +256,11 @@ export function parseApiError(error: any): string {
     return error.message;
   }
 
-  return 'An unexpected communication error occurred. Check the console for logs.';
+  if (typeof error === 'object' && error !== null) {
+    try { return JSON.stringify(error); } catch {}
+  }
+
+  return String(error || 'An unexpected communication error occurred.');
 }
 
 export async function executeWithRetry<T>(
