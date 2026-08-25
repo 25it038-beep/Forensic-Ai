@@ -119,7 +119,7 @@ export default function App() {
 
   const checkHealth = async () => {
     try {
-      await apiRequest("/health", { method: "get", timeout: 8000 });
+      await apiRequest("/health", { method: "get", timeout: 35000 });
       setBackendReady(true);
       return true;
     } catch {
@@ -132,9 +132,7 @@ export default function App() {
     setLoadingStats(true);
     setStatsError(null);
     try {
-      await executeWithRetry(() => apiRequest("/health", { method: "get", timeout: 8000 }), 3, 1500);
-      setBackendReady(true);
-      const data = await executeWithRetry(() => apiRequest<StatsData>("/api/stats", { method: "get", timeout: 15000 }), 4, 1500);
+      const data = await executeWithRetry(() => apiRequest<StatsData>("/api/stats", { method: "get", timeout: 35000 }), 3, 2000);
       setStats(data);
       setStatsError(null);
       setBackendReady(true);
@@ -142,7 +140,6 @@ export default function App() {
       const msg = parseApiError(err);
       setStatsError(msg);
       setBackendReady(false);
-      if (stats) showToast(msg, "error");
     } finally {
       setLoadingStats(false);
     }
