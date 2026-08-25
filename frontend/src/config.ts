@@ -170,7 +170,10 @@ export function getOfflineUrlAnalysis(url: string) {
 function getAuthHeader(): Record<string, string> {
   try {
     const t = typeof window !== 'undefined' ? localStorage.getItem('forensic_jwt') : null;
-    return t ? { Authorization: `Bearer ${t}` } : {};
+    if (t && t !== 'undefined' && t !== 'null' && typeof t === 'string' && t.split('.').length === 3) {
+      return { Authorization: `Bearer ${t.trim()}` };
+    }
+    return {};
   } catch { return {}; }
 }
 

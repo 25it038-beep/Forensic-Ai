@@ -74,12 +74,15 @@ def get_optional_current_user(
 ) -> Optional[User]:
     if not credentials or not credentials.credentials:
         return None
-    payload = decode_token(credentials.credentials)
-    email = payload.get("sub")
-    if not email:
+    try:
+        payload = decode_token(credentials.credentials)
+        email = payload.get("sub")
+        if not email:
+            return None
+        user = db.query(User).filter(User.email == email).first()
+        return user
+    except Exception:
         return None
-    user = db.query(User).filter(User.email == email).first()
-    return user
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
