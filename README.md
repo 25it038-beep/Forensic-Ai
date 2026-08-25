@@ -54,7 +54,7 @@ python app.py
 
 Open your browser and visit
 
-https://efinal-ok77.vercel.app/
+https://forensic-ai-1.onrender.com/
 How It Works
 The user enters the email text.
 The email is converted into numerical features using a trained vectorizer.
