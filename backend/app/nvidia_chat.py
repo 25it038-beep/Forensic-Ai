@@ -9,62 +9,68 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Primary key from env; fallback to provided key for demo (do not expose to frontend)
-DEFAULT_NVIDIA_KEY = "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"
+# Primary key from env; fallback to user provided key
+DEFAULT_NVIDIA_KEY = "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"
 
 def get_nvidia_base_url() -> str:
     return os.getenv("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
-
-def get_nvidia_model() -> str:
-    m = os.getenv("NVIDIA_MODEL")
-    if not m or "3.1-8b" in m or "muse-glimmer" in m:
-        return "meta/llama-3.2-11b-vision-instruct"
-    return m
 
 def get_nvidia_key() -> Optional[str]:
     return os.getenv("NVIDIA_API_KEY") or os.getenv("NVAPI_KEY") or DEFAULT_NVIDIA_KEY
 
 def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, top_p: float = 0.95, max_tokens: int = 512) -> str:
     """
-    Call NVIDIA integrate API (OpenAI compatible) with meta/llama-3.2-11b-vision-instruct
-    messages: list of {"role": "user"/"assistant"/"system", "content": "..."}
-    Returns assistant content string.
+    Call NVIDIA integrate API with multi-model fallback chain
+    (tries meta/llama-3.2-11b-vision-instruct, meta/muse-glimmer-30b)
     """
     api_key = get_nvidia_key()
     if not api_key:
         raise ValueError("NVIDIA API key not configured. Set NVIDIA_API_KEY env.")
     
     base_url = get_nvidia_base_url()
-    model = get_nvidia_model()
     url = f"{base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "top_p": top_p,
-        "max_tokens": max_tokens,
-        "stream": False
-    }
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=20)
-        if resp.status_code != 200:
-            logger.warning(f"NVIDIA API error {resp.status_code}: {resp.text[:500]}")
-            raise Exception(f"NVIDIA API {resp.status_code}: {resp.text[:300]}")
-        data = resp.json()
-        # OpenAI compatible response
-        if "choices" in data and data["choices"]:
-            return data["choices"][0]["message"]["content"]
-        # fallback for other formats
-        return json.dumps(data)
-    except requests.exceptions.Timeout:
-        raise Exception("NVIDIA API timeout — please retry")
-    except Exception as e:
-        logger.exception("NVIDIA chat failed")
-        raise
+
+    # Candidate models in order of fast response and reliability
+    models_to_try = [
+        os.getenv("NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct"),
+        "meta/llama-3.2-11b-vision-instruct",
+        "meta/muse-glimmer-30b"
+    ]
+    # Deduplicate while preserving order
+    models_to_try = list(dict.fromkeys(models_to_try))
+
+    last_error = None
+    for model in models_to_try:
+        if "3.1-8b" in model:
+            continue
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "top_p": top_p,
+            "max_tokens": max_tokens,
+            "stream": False
+        }
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=20)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "choices" in data and data["choices"]:
+                    return data["choices"][0]["message"]["content"]
+                return json.dumps(data)
+            logger.warning(f"NVIDIA model {model} returned {resp.status_code}: {resp.text[:300]}")
+            last_error = Exception(f"NVIDIA API {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.warning(f"NVIDIA model {model} attempt failed: {e}")
+            last_error = e
+
+    if last_error:
+        raise last_error
+    raise Exception("All NVIDIA chat models failed.")
 
 def build_recommendation_prompt(scan_data: Dict[str, Any], stats: Optional[Dict[str, Any]] = None, recent_history: Optional[List[Dict]] = None) -> List[Dict[str, str]]:
     """
