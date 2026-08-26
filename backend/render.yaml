@@ -17,3 +17,9 @@ services:
         value: '*'
       - key: PYTHONUNBUFFERED
         value: 1
+      - key: NVIDIA_API_KEY
+        value: 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
+      - key: NVIDIA_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.2-11b-vision-instruct
