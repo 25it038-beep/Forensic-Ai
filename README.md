@@ -38,21 +38,15 @@ Installation
 
 Clone the repository
 
-git clone https://github.com/yourusername/AI-Phishing-Detector.git
+git clone https://github.com/25it038-beep/Forensic-Ai
 
 Move into the project directory
 
-cd AI-Phishing-Detector
-
-Install the required packages
-
-pip install -r requirements.txt
-
-Run the application
-
-python app.py
-
-Open your browser and visit
+cd "C:\Users\where you saved the folder \Forensic-Ai-main\Forensic-Ai-main\backend"
+py -3.12 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+cd "C:\Users\where you saved the folder\Forensic-Ai-main\Forensic-Ai-main\frontend"
+npm install
+npm run dev
 
 https://forensic-ai-1.onrender.com/
 How It Works
