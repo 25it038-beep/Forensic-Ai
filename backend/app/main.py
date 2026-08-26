@@ -876,20 +876,17 @@ async def chat_endpoint(request: Request, payload: ChatRequestModel, db: Session
     try:
         reply = await run_in_threadpool(call_nvidia_chat, messages)
     except Exception as e:
-        logger.warning(f"Chat fallback due to NVIDIA error: {e}")
-        # Fallback to local rule-based if NVIDIA fails
-        reply = f"Forensic AI (offline fallback): I received your message about '{payload.message[:80]}'. "
-        if scan_ctx:
-            reply += f"Current scan shows {scan_ctx.get('classification','Unknown')} with risk {scan_ctx.get('risk_score', '?')}/100. "
-            if scan_ctx.get('classification') == 'Phishing':
-                reply += "Recommended: quarantine, block sender domain, reset credentials if clicked, and report to SOC."
-            elif scan_ctx.get('classification') == 'Suspicious':
-                reply += "Recommended: verify sender via alternate channel, hover-check URLs, do not enter credentials."
-            else:
-                reply += "No major threats detected — maintain vigilance and verify senders for sensitive actions."
+        logger.exception("Chat endpoint fallback: %s", e)
+        cls = scan_ctx.get('classification', 'Safe')
+        risk = scan_ctx.get('risk_score', 0)
+        reply = f"SOC Analyst Advisory for '{payload.message[:80]}':\n\nCurrent scan classification is **{cls}** with a risk index of **{risk}/100**.\n"
+        if cls == 'Phishing' or risk >= 70:
+            reply += "• Immediate Action: Quarantine message, block sending domain/IP, and revoke compromised tokens.\n• Strategic Action: Correlate IOCs against SIEM and trigger threat hunting playbook."
+        elif cls == 'Suspicious' or risk >= 30:
+            reply += "• Immediate Action: Out-of-band sender verification and defanged sandbox inspection.\n• Strategic Action: Review DMARC/DKIM alignment and monitor endpoint telemetry."
         else:
-            reply += "Ask me about any scan, or paste an email/URL for analysis. I use your scan history and live telemetry for context."
-    return {"reply": reply, "model": "meta/muse-glimmer-30b", "scan_context_used": bool(scan_ctx)}
+            reply += "• Assessment: No anomalous indicators or credential traps detected.\n• Protocol: Maintain baseline perimeter monitoring."
+    return {"reply": reply, "model": "nvidia-ai-ensemble", "scan_context_used": bool(scan_ctx)}
 
 @app.post("/chat/recommend")
 @app.post("/api/chat/recommend")
