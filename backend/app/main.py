@@ -193,12 +193,10 @@ def validate_email_text(text: str) -> str:
     return sanitized_text
 
 @app.get("/")
+@app.get("/api")
+@app.get("/fastapi")
 def root_endpoint() -> Dict[str, Any]:
     return {"status": "online", "service": "Forensic AI Engine", "version": "3.0", "docs": "/docs", "health": "/health"}
-
-@app.get("/api")
-def api_root() -> Dict[str, str]:
-    return {"status": "healthy", "service": "forensic-ai-api", "version": "3.0"}
 
 @app.get("/health")
 @app.get("/api/health")
@@ -214,7 +212,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled error on %s %s: %s", request.method, request.url.path, exc)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-# --- Auth Routes (missing feature) ---
+# --- Auth Routes ---
+@app.post("/auth/register", response_model=UserResponse)
 @app.post("/api/auth/register", response_model=UserResponse)
 def register(payload: UserRegister, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email.lower().strip()).first()
@@ -225,6 +224,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
     logger.info("New user registered: %s", user.email)
     return user
 
+@app.post("/auth/login", response_model=Token)
 @app.post("/api/auth/login", response_model=Token)
 def login(payload: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email.lower().strip()).first()
@@ -235,12 +235,14 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
     token = create_access_token({"sub": user.email, "uid": user.id, "role": user.role})
     return Token(access_token=token, token_type="bearer", user=user)
 
+@app.get("/auth/me", response_model=UserResponse)
 @app.get("/api/auth/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 # --- Core Scanner Routes ---
 
+@app.post("/predict", response_model=PredictResponse)
 @app.post("/api/predict", response_model=PredictResponse)
 @limiter.limit("30/minute")
 async def predict_email(
@@ -528,6 +530,7 @@ async def upload_file_or_email(
     })
     return result
 
+@app.post("/analyze-url", response_model=UrlAnalyzeResponse)
 @app.post("/api/analyze-url", response_model=UrlAnalyzeResponse)
 @limiter.limit("30/minute")
 async def analyze_url_endpoint(
@@ -848,6 +851,7 @@ class RecommendRequestModel(_BaseModel):
     stats: Optional[Dict[str, Any]] = None
     history: Optional[List[Dict[str, Any]]] = None
 
+@app.post("/chat")
 @app.post("/api/chat")
 @limiter.limit("30/minute")
 async def chat_endpoint(request: Request, payload: ChatRequestModel, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
@@ -887,6 +891,7 @@ async def chat_endpoint(request: Request, payload: ChatRequestModel, db: Session
             reply += "Ask me about any scan, or paste an email/URL for analysis. I use your scan history and live telemetry for context."
     return {"reply": reply, "model": "meta/muse-glimmer-30b", "scan_context_used": bool(scan_ctx)}
 
+@app.post("/chat/recommend")
 @app.post("/api/chat/recommend")
 @limiter.limit("30/minute")
 async def recommend_endpoint(request: Request, payload: RecommendRequestModel, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
