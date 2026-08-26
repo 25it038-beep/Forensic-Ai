@@ -5,4 +5,21 @@ backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from app.main import app
+from app.main import app as _fastapi_app
+
+class VercelPathFixMiddleware:
+    def __init__(self, asgi_app):
+        self.asgi_app = asgi_app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") in ("http", "websocket"):
+            raw_path = scope.get("path", "")
+            for prefix in ["/api/index.py", "/api/index"]:
+                if raw_path.startswith(prefix):
+                    clean = raw_path[len(prefix):]
+                    scope["path"] = clean if clean.startswith("/") else ("/" + clean if clean else "/")
+                    break
+        await self.asgi_app(scope, receive, send)
+
+app = VercelPathFixMiddleware(_fastapi_app)
+handler = app
