@@ -83,8 +83,4 @@ Training Machine Learning models
 Building web applications with Flask
 Integrating ML models into web applications
 Basic deployment workflow
-Author
 
-Harshan Seliyan B.S.
-
-Information Technology Student | Cybersecurity & AI Enthusiast
