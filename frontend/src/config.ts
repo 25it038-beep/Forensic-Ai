@@ -43,6 +43,7 @@ export function getActiveApiUrls(): string[] {
       addCandidate(RAW_API_URL);
     }
     addCandidate('http://127.0.0.1:8000');
+    addCandidate('http://127.0.0.1:8080');
     addCandidate(DEFAULT_PROD_URL);
   } else {
     // When running in production (Vercel / Netlify / Render)
