@@ -192,13 +192,18 @@ def validate_email_text(text: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid or empty email text.")
     return sanitized_text
 
+@app.get("/")
+def root_endpoint() -> Dict[str, Any]:
+    return {"status": "online", "service": "Forensic AI Engine", "version": "3.0", "docs": "/docs", "health": "/health"}
+
 @app.get("/api")
 def api_root() -> Dict[str, str]:
     return {"status": "healthy", "service": "forensic-ai-api", "version": "3.0"}
 
 @app.get("/health")
+@app.get("/api/health")
 def health() -> Dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "service": "forensic-ai"}
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
