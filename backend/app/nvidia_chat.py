@@ -4,19 +4,29 @@ import json
 import logging
 from typing import List, Dict, Any, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct")
 # Primary key from env; fallback to provided key for demo (do not expose to frontend)
 DEFAULT_NVIDIA_KEY = "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"
+
+def get_nvidia_base_url() -> str:
+    return os.getenv("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
+
+def get_nvidia_model() -> str:
+    m = os.getenv("NVIDIA_MODEL")
+    if not m or "3.1-8b" in m or "muse-glimmer" in m:
+        return "meta/llama-3.2-11b-vision-instruct"
+    return m
 
 def get_nvidia_key() -> Optional[str]:
     return os.getenv("NVIDIA_API_KEY") or os.getenv("NVAPI_KEY") or DEFAULT_NVIDIA_KEY
 
 def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, top_p: float = 0.95, max_tokens: int = 512) -> str:
     """
-    Call NVIDIA integrate API (OpenAI compatible) with meta/muse-glimmer-30b
+    Call NVIDIA integrate API (OpenAI compatible) with meta/llama-3.2-11b-vision-instruct
     messages: list of {"role": "user"/"assistant"/"system", "content": "..."}
     Returns assistant content string.
     """
@@ -24,13 +34,15 @@ def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, t
     if not api_key:
         raise ValueError("NVIDIA API key not configured. Set NVIDIA_API_KEY env.")
     
-    url = f"{NVIDIA_BASE_URL}/chat/completions"
+    base_url = get_nvidia_base_url()
+    model = get_nvidia_model()
+    url = f"{base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
     payload = {
-        "model": NVIDIA_MODEL,
+        "model": model,
         "messages": messages,
         "temperature": temperature,
         "top_p": top_p,
@@ -38,7 +50,7 @@ def call_nvidia_chat(messages: List[Dict[str, str]], temperature: float = 0.7, t
         "stream": False
     }
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        resp = requests.post(url, headers=headers, json=payload, timeout=20)
         if resp.status_code != 200:
             logger.warning(f"NVIDIA API error {resp.status_code}: {resp.text[:500]}")
             raise Exception(f"NVIDIA API {resp.status_code}: {resp.text[:300]}")
