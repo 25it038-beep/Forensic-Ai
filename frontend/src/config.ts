@@ -17,11 +17,12 @@ export function getActiveApiUrls(): string[] {
   const candidates: string[] = [];
   const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
 
   const addCandidate = (url: string) => {
     const cleaned = cleanApiUrl(url);
     if (!cleaned) {
-      if (hostname.includes('forensic-ai-1') || hostname.includes('vercel.app') || hostname.includes('netlify.app')) {
+      if (!isLocal && (hostname.includes('forensic-ai-1') || hostname.includes('vercel.app') || hostname.includes('netlify.app'))) {
         return;
       }
       if (!candidates.includes('')) candidates.push('');
@@ -35,12 +36,21 @@ export function getActiveApiUrls(): string[] {
     }
   };
 
-  // 1. Primary Live Production Backend
-  addCandidate(DEFAULT_PROD_URL);
-
-  // 2. Build-time Env variable
-  if (RAW_API_URL) {
-    addCandidate(RAW_API_URL);
+  // When running locally, prioritize local proxy & local backend first
+  if (isLocal) {
+    addCandidate(''); // Vite proxy (/api)
+    if (RAW_API_URL) {
+      addCandidate(RAW_API_URL);
+    }
+    addCandidate('http://127.0.0.1:8000');
+    addCandidate(DEFAULT_PROD_URL);
+  } else {
+    // When running in production (Vercel / Netlify / Render)
+    if (RAW_API_URL) {
+      addCandidate(RAW_API_URL);
+    }
+    addCandidate(DEFAULT_PROD_URL);
+    addCandidate('');
   }
 
   // 3. User override in localStorage
@@ -55,9 +65,6 @@ export function getActiveApiUrls(): string[] {
       }
     } catch {}
   }
-
-  // 4. Same-origin fallback
-  addCandidate('');
 
   return candidates;
 }
