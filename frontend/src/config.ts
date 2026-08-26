@@ -37,23 +37,19 @@ export function getActiveApiUrls(): string[] {
     }
   };
 
-  // When running locally, strictly connect to http://127.0.0.1:8080 first
+  // When running locally, strictly and exclusively talk to http://127.0.0.1:8080
   if (isLocal) {
-    addCandidate('http://127.0.0.1:8080');
-    addCandidate('');
-    if (RAW_API_URL) {
-      addCandidate(RAW_API_URL);
-    }
-  } else {
-    // When running in production (Vercel / Netlify / Render)
-    if (RAW_API_URL) {
-      addCandidate(RAW_API_URL);
-    }
-    addCandidate(DEFAULT_PROD_URL);
-    addCandidate('');
+    return ['http://127.0.0.1:8080'];
   }
 
-  // 3. User override in localStorage
+  // When running in production (Vercel / Netlify / Render)
+  if (RAW_API_URL) {
+    addCandidate(RAW_API_URL);
+  }
+  addCandidate(DEFAULT_PROD_URL);
+  addCandidate('');
+
+  // User override in localStorage (only in production)
   if (typeof window !== 'undefined') {
     try {
       const raw = localStorage.getItem('forensic_settings_v2');
