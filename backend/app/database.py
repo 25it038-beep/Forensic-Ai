@@ -68,7 +68,18 @@ def migrate_db():
             except Exception as e:
                 pass
 
+_db_initialized = False
+
 def get_db():
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            from .models import User, ScanHistory
+            Base.metadata.create_all(bind=engine)
+            migrate_db()
+            _db_initialized = True
+        except Exception:
+            pass
     db = SessionLocal()
     try:
         yield db
