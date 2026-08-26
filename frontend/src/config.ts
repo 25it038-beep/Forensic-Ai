@@ -36,14 +36,14 @@ export function getActiveApiUrls(): string[] {
     }
   };
 
-  // When running locally, prioritize local proxy & local backend first
+  // When running locally, prioritize local proxy & local backend on 8080 first
   if (isLocal) {
-    addCandidate(''); // Vite proxy (/api)
+    addCandidate(''); // Vite proxy (/api -> 8080)
+    addCandidate('http://127.0.0.1:8080');
     if (RAW_API_URL) {
       addCandidate(RAW_API_URL);
     }
     addCandidate('http://127.0.0.1:8000');
-    addCandidate('http://127.0.0.1:8080');
     addCandidate(DEFAULT_PROD_URL);
   } else {
     // When running in production (Vercel / Netlify / Render)
