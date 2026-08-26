@@ -15,26 +15,33 @@ from .indicators import analyze_indicators
 logger = logging.getLogger(__name__)
 
 
-# Ensure /tmp/nltk_data is included in NLTK search path for serverless
-nltk_data_dir = "/tmp/nltk_data" if os.path.exists("/tmp") else os.path.join(os.getenv("TEMP", "."), "nltk_data")
+# Ensure correct NLTK search path (platform-aware)
+if os.name == 'nt':
+    nltk_data_dir = os.path.join(os.getenv("TEMP", os.path.expanduser("~")), "nltk_data")
+else:
+    nltk_data_dir = "/tmp/nltk_data" if os.path.exists("/tmp") else os.path.join(os.getenv("TEMP", "."), "nltk_data")
+
 if nltk_data_dir not in nltk.data.path:
     nltk.data.path.append(nltk_data_dir)
 
 def ensure_nltk_resources() -> None:
-    for resource in ("stopwords", "punkt", "punkt_tab"):
+    for resource in ("stopwords", "punkt"):
         try:
             if resource == "stopwords":
                 nltk.data.find("corpora/stopwords")
             else:
-                nltk.data.find(f"tokenizers/{resource}")
-        except LookupError:
+                nltk.data.find("tokenizers/punkt")
+        except Exception:
             try:
                 os.makedirs(nltk_data_dir, exist_ok=True)
                 nltk.download(resource, download_dir=nltk_data_dir, quiet=True)
             except Exception as exc:
                 logger.warning("NLTK resource %s could not be downloaded: %s", resource, exc)
 
-ensure_nltk_resources()
+try:
+    ensure_nltk_resources()
+except Exception as e:
+    logger.warning("NLTK initialization bypassed: %s", e)
 
 # File paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
