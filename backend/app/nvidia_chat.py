@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Primary key from env; fallback to user provided key
-DEFAULT_NVIDIA_KEY = "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"
+# Primary key from environment variable
+DEFAULT_NVIDIA_KEY = os.getenv("NVIDIA_API_KEY", "")
 
 def get_nvidia_base_url() -> str:
     return os.getenv("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"

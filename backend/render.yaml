@@ -18,7 +18,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: 1
       - key: NVIDIA_API_KEY
-        value: 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
+        sync: false
       - key: NVIDIA_BASE_URL
         value: https://integrate.api.nvidia.com/v1
       - key: NVIDIA_MODEL

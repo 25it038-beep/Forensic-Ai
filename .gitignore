@@ -18,6 +18,15 @@ coverage.xml
 *.log
 .mypy_cache/
 
+# Environment & Secret files
+.env
+.env.*
+!.env.example
+*.env
+backend/.env
+frontend/.env
+*.env.local
+
 # Node / Frontend
 node_modules/
 dist/
