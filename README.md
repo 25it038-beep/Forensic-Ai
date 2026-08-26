@@ -245,25 +245,9 @@ Once the backend is running, access interactive OpenAPI documentation at:
 
 ---
 
-## 🛠️ Troubleshooting & Directory Issues
 
-### 1. `ModuleNotFoundError: No module named 'app'`
-- **Cause**: Running `uvicorn app.main:app` from the project root instead of inside `backend/`.
-- **Fix**:
-  - Either `cd backend` first, then run `uvicorn app.main:app --reload --port 8000`.
-  - Or from root run: `python -m uvicorn backend.app.main:app --reload --port 8000`.
-
-### 2. Frontend shows `Network Error` or `Failed to fetch`
-- **Cause**: Backend is not running or running on an unexpected port.
-- **Fix**: Make sure FastAPI is running on port `8000` (`http://127.0.0.1:8000`). If using a custom port, set `VITE_API_PROXY_TARGET=http://127.0.0.1:YOUR_PORT` in `frontend/.env`.
-
-### 3. Missing OCR / QR Detection Dependencies (Optional)
-- For advanced QR-code scanning and OCR attachment forensics:
-  - **Ubuntu/Debian**: `sudo apt-get install -y libzbar0 tesseract-ocr`
-  - **macOS**: `brew install zbar tesseract`
-  - **Windows**: Install Tesseract OCR from UB-Mannheim and ensure it is in your system `PATH`.
 
 ---
 
-## 👥 Authors & Team
-- **Harshan Seliyan B.S.** — Cybersecurity & AI Lead
+## 👥 Team
+- Vision X
