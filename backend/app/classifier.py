@@ -15,19 +15,24 @@ from .indicators import analyze_indicators
 logger = logging.getLogger(__name__)
 
 
+# Ensure /tmp/nltk_data is included in NLTK search path for serverless
+nltk_data_dir = "/tmp/nltk_data" if os.path.exists("/tmp") else os.path.join(os.getenv("TEMP", "."), "nltk_data")
+if nltk_data_dir not in nltk.data.path:
+    nltk.data.path.append(nltk_data_dir)
+
 def ensure_nltk_resources() -> None:
-    for resource in ("stopwords", "punkt"):
+    for resource in ("stopwords", "punkt", "punkt_tab"):
         try:
             if resource == "stopwords":
                 nltk.data.find("corpora/stopwords")
             else:
-                nltk.data.find("tokenizers/punkt")
+                nltk.data.find(f"tokenizers/{resource}")
         except LookupError:
             try:
-                nltk.download(resource, quiet=True)
+                os.makedirs(nltk_data_dir, exist_ok=True)
+                nltk.download(resource, download_dir=nltk_data_dir, quiet=True)
             except Exception as exc:
                 logger.warning("NLTK resource %s could not be downloaded: %s", resource, exc)
-
 
 ensure_nltk_resources()
 

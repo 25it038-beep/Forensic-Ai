@@ -4,9 +4,18 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    # Use current backend directory for local SQLite database
+    # Check if running in Vercel / serverless environment with read-only root filesystem
+    is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_path = os.path.join(base_dir, "phishing_detector.db")
+    target_dir = "/tmp" if (is_serverless and os.path.exists("/tmp")) else base_dir
+    try:
+        test_file = os.path.join(target_dir, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("ok")
+        os.remove(test_file)
+    except Exception:
+        target_dir = "/tmp" if os.path.exists("/tmp") else os.getenv("TEMP", ".")
+    db_path = os.path.join(target_dir, "phishing_detector.db")
     DATABASE_URL = f"sqlite:///{db_path}"
 
 engine_kwargs: dict = {"pool_pre_ping": True}
