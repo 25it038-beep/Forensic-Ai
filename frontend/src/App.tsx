@@ -7,8 +7,6 @@ import {
   X, 
   Settings as SettingsIcon, 
   ChevronRight, 
-  Radio, 
-  Lock, 
   Users, 
   RefreshCw, 
   LogOut,
@@ -222,117 +220,134 @@ export default function App() {
       )}
 
       {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 flex flex-col transform lg:translate-x-0 lg:static lg:flex transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ background: "var(--panel)", borderRight: "1px solid var(--border)" }}>
-
-        <div className="px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center justify-between">
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col justify-between transform lg:translate-x-0 lg:static lg:flex transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ background: "var(--panel)", borderRight: "1px solid var(--border)" }}>
+        
+        {/* Top Section: Brand + Navigation */}
+        <div className="flex flex-col flex-1 min-h-0">
+          
+          {/* Logo & Header */}
+          <div className="h-16 px-5 flex items-center justify-between border-b" style={{ borderColor: "var(--border)" }}>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                <Shield className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-sky-500/10 border border-sky-500/30 text-sky-400 shrink-0">
+                <Shield className="w-4 h-4" />
               </div>
               <div>
-                <h1 className="text-[15px] font-bold tracking-tight font-mono" style={{ color: "var(--text)" }}>SOC FORENSICS</h1>
-                <p className="text-[10px] font-mono -mt-0.5" style={{ color: "var(--muted)" }}>Neural Telemetry • v3.0</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold tracking-tight text-white font-mono">FORENSIC AI</span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">v3.0</span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono -mt-0.5">SOC Threat Intel</p>
               </div>
             </div>
-            <button onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-md border text-slate-500" style={{ background: "var(--panel-soft)", borderColor: "var(--border)" }}>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg border border-white/[0.08] text-slate-400 hover:text-white"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
 
-        {/* THREAT POSTURE HUD */}
-        <div className="mx-4 mt-4 p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: `3px solid ${threatLevel==="Critical"?"#ef4444":threatLevel==="Elevated"?"#f59e0b":threatLevel==="Nominal"?"#10b981":"#e5e7eb"}` }}>
-          <Radio className="w-4 h-4 flex-shrink-0" style={{ color: threatLevel==="Critical"?"#ef4444":threatLevel==="Elevated"?"#f59e0b":threatLevel==="Nominal"?"#10b981":"#9ca3af" }} />
-          <div className="flex-grow">
-            <p className="text-[10px] font-medium tracking-wide font-mono" style={{ color: "var(--muted)" }}>THREAT POSTURE</p>
-            <p className="text-[12px] font-bold font-mono -mt-0.5" style={{ color: "var(--text)" }}>{threatLevel}</p>
-          </div>
-          <div className="w-2 h-2 rounded-full" style={{ background: threatLevel==="Critical"?"#ef4444":threatLevel==="Elevated"?"#f59e0b":threatLevel==="Nominal"?"#10b981":"#9ca3af" }} />
-        </div>
-
-        {/* OPERATOR CLEARANCE BADGE */}
-        <div className="mx-4 mt-2 p-2.5 rounded-xl border border-white/[0.06] bg-black/30 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${currentUser ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
-            <div className="min-w-0">
-              <p className="text-[10px] font-mono font-bold truncate text-white">
-                {currentUser?.email ? currentUser.email : "Guest Analyst"}
-              </p>
-              <p className="text-[8px] font-mono text-slate-500 uppercase">
-                {currentUser?.role ? currentUser.role : "Level-1 Clearance"}
-              </p>
+          {/* Navigation Items */}
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+            
+            <div className="space-y-1">
+              <div className="px-3 pb-2 text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">
+                Platform Navigation
+              </div>
+              {navItems.map(item => {
+                const Icon = item.icon;
+                const active = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-mono text-xs transition text-left ${
+                      active
+                        ? "bg-sky-500/15 text-sky-400 font-bold border border-sky-500/30 shadow-sm"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border border-transparent"
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-sky-400" : "text-slate-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="leading-none text-xs truncate">{item.label}</p>
+                      <p className="text-[10px] text-slate-500 font-normal mt-0.5 truncate">{item.subLabel}</p>
+                    </div>
+                    {active && <ChevronRight className="w-3.5 h-3.5 text-sky-400/70 shrink-0" />}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Threat Posture & Status Widget */}
+            <div className="px-1 space-y-2">
+              <div className="px-2 text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">
+                System Status
+              </div>
+              <div className="p-3 rounded-xl border space-y-2 text-xs font-mono" style={{ background: "#0c1018", borderColor: "var(--border)" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">Threat Posture</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                    threatLevel === "Critical" ? "badge-phishing" : threatLevel === "Elevated" ? "badge-suspicious" : "badge-safe"
+                  }`}>
+                    {threatLevel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-white/[0.04]">
+                  <span className="text-slate-400">SOC Engine</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-1.5 h-1.5 rounded-full ${backendReady ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                    <span className={backendReady ? "text-emerald-400" : "text-amber-400"}>
+                      {backendReady ? "Operational" : "Connecting..."}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setOnboardingOpen(true)}
-              className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-cyan-300 font-mono text-[9px] border border-white/[0.05]"
-              title="Open SOC Onboarding & Clearance Gateway"
-            >
-              <Key className="w-3.5 h-3.5" />
-            </button>
-            {currentUser && (
+        </div>
+
+        {/* Bottom Section: Analyst Profile & Session Footer */}
+        <div className="p-3 border-t" style={{ borderColor: "var(--border)", background: "var(--panel)" }}>
+          <div className="p-2.5 rounded-xl border border-white/[0.06] bg-black/20 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-sky-950/80 border border-sky-500/30 flex items-center justify-center text-sky-400 font-mono font-bold text-xs shrink-0">
+                {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : "A"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-mono font-bold truncate text-white">
+                  {currentUser?.email ? currentUser.email.split('@')[0] : "Guest Analyst"}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${currentUser ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  <p className="text-[9px] font-mono text-slate-400 truncate uppercase">
+                    {currentUser?.role ? currentUser.role : "Level-1 Clearance"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1 shrink-0">
               <button
-                onClick={handleLogout}
-                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 font-mono text-[9px] border border-red-500/20"
-                title="Logout of SOC Session"
+                onClick={() => setOnboardingOpen(true)}
+                className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-white/[0.06] text-slate-400 hover:text-sky-300 transition"
+                title="Clearance Gateway"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <Key className="w-3.5 h-3.5" />
               </button>
-            )}
+              {currentUser && (
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition"
+                  title="Logout Session"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        <nav className="flex-grow p-4 space-y-1 mt-2">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-            return (
-              <button key={item.id}
-                onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                className={`nav-item ${active ? "nav-item-active" : "nav-item-inactive"}`}>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${active ? "bg-slate-900 text-white border-slate-900" : "bg-transparent text-slate-500 border-transparent"}`} style={active ? {} : { background: "var(--panel-soft)", borderColor: "var(--border)" }}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="flex-grow min-w-0 text-left">
-                  <p className="text-[13px] font-medium leading-none" style={{ color: active ? "var(--text)" : "var(--muted)" }}>{item.label}</p>
-                  <p className="text-[11px] mt-0.5 font-normal" style={{ color: "var(--faint)" }}>{item.subLabel}</p>
-                </div>
-                {active && <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--faint)" }} />}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t" style={{ borderColor: "var(--border)" }}>
-          <div className="rounded-xl p-3 space-y-2.5" style={{ background: "var(--panel-soft)", border: "1px solid var(--border)" }}>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium font-mono" style={{ color: "var(--muted)" }}>SOC Telemetry</span>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${backendReady === false ? "bg-amber-50 text-amber-700 border-amber-200" : backendReady ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
-                {backendReady === false ? "Connecting…" : backendReady ? "Operational" : "Checking…"}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              {[
-                ["Neural ML", backendReady ? "Calibrated" : "—"],
-                ["Forensics", "RFC 5322"],
-                ["Geolocation", "Dual-Node"],
-                ["Sovereign", "NIC/GOV"],
-              ].map(([k,v]) => (
-                <div key={k} className="flex items-center justify-between">
-                  <span style={{ color: "var(--faint)" }}>{k}</span>
-                  <span className="font-medium font-mono text-[10px]" style={{ color: "var(--text-soft)" }}>{v}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 pt-2.5 border-t" style={{ borderColor: "var(--border)" }}>
-              <Lock className="w-3 h-3" style={{ color: "var(--faint)" }} />
-              <span className="text-[10px] font-mono" style={{ color: "var(--faint)" }}>AES-256 GCM Encrypted</span>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* MAIN CONTENT */}
