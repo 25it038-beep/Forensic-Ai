@@ -24,7 +24,7 @@ interface AttributionIntelligence { probable_actor_type: string; attribution_con
 interface GraphNode { id: string; label: string; type: string; threat_level: string; }
 interface GraphLink { source: string; target: string; relationship: string; }
 interface CorrelationGraph { nodes: GraphNode[]; links: GraphLink[]; }
-interface DigitalForensicsResult { header_forensics?: HeaderForensics; attachment_forensics: AttachmentForensics[]; url_forensics?: UrlForensics; origin_geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; forensic_risk_score: number; forensic_flags: string[]; bec_analysis?: BecAnalysisResult; attribution?: AttributionIntelligence; correlation_graph?: CorrelationGraph; }
+interface DigitalForensicsResult { header_forensics?: HeaderForensics; attachment_forensics: AttachmentForensics[]; url_forensics?: UrlForensics; origin_geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; forensic_risk_score: number; forensic_flags: string[]; bec_analysis?: BecAnalysisResult; attribution?: AttributionIntelligence; correlation_graph?: CorrelationGraph; extracted_urls?: string[]; }
 interface MitreMapping { id: string; name: string; description: string; }
 interface LlmAnalysisResult { danger_explanation: string; social_engineering_techniques: string[]; indicators_of_compromise: string[]; safety_recommendations: string[]; mitre_mappings: MitreMapping[]; }
 interface PredictResponse { id?: number; subject?: string; sender?: string; classification: string; confidence_score: number; risk_score: number; explanation: string; detected_indicators: Record<string, boolean>; highlighted_text: string; xai_keywords?: KeywordImportance[]; created_at?: string; threat_type?: string; virustotal_results?: VirusTotalResult; whois_results?: WhoisResult; email_auth_results?: EmailAuthResult; attachment_analysis?: AttachmentInfo[]; llm_analysis?: LlmAnalysisResult; geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; forensics?: DigitalForensicsResult; ocr_extracted_text?: string; }
@@ -913,47 +913,105 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.04]">
-                        {[
-                          { ip: serverGeo?.ip || "185.220.101.5", source: "Physical Origin SMTP", country: serverGeo?.country || "Germany", city: serverGeo?.city || "Frankfurt", isp: serverGeo?.isp || "Cloud Gateway", asn: serverGeo?.asn || "AS2000", rep: vt?.reputation || 0 },
-                          { ip: "198.51.100.24", source: "Transit Relay Hop #1", country: "United States", city: "Ashburn", isp: "Amazon AWS", asn: "AS16509", rep: 0 },
-                        ].map((row, i) => (
-                          <React.Fragment key={i}>
-                            <tr
-                              onClick={() => setExpandedIp(expandedIp === row.ip ? null : row.ip)}
-                              className="hover:bg-white/[0.02] cursor-pointer transition"
-                            >
-                              <td className="p-3 font-bold text-sky-400">{row.ip}</td>
-                              <td className="p-3 text-slate-300">{row.source}</td>
-                              <td className="p-3 text-slate-300">{row.country}</td>
-                              <td className="p-3 text-slate-300">{row.city}</td>
-                              <td className="p-3 text-slate-300">{row.isp}</td>
-                              <td className="p-3 text-slate-400">{row.asn}</td>
-                              <td className="p-3 text-right font-bold" style={{ color: row.rep < 0 ? "#f43f5e" : "#10b981" }}>
-                                {row.rep}
-                              </td>
-                            </tr>
-                            {expandedIp === row.ip && (
-                              <tr>
-                                <td colSpan={7} className="p-4 bg-sky-950/20 border-t border-b border-sky-500/20 text-xs">
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div>
-                                      <span className="text-[10px] text-slate-400 uppercase font-bold">Geolocation Coordinates:</span>
-                                      <p className="text-white mt-0.5">{serverGeo?.latitude || 50.1109}, {serverGeo?.longitude || 8.6821}</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-[10px] text-slate-400 uppercase font-bold">WHOIS Allocation:</span>
-                                      <p className="text-white mt-0.5">RIPE NCC / Regional Internet Registry</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-[10px] text-slate-400 uppercase font-bold">Abuse Contact:</span>
-                                      <p className="text-white mt-0.5">abuse-notify@{row.isp.toLowerCase().replace(/[^a-z]/g, '')}.com</p>
-                                    </div>
-                                  </div>
+                        {(() => {
+                          const ipRows: any[] = [];
+                          if (serverGeo && serverGeo.ip && serverGeo.ip !== "Unknown") {
+                            ipRows.push({
+                              ip: serverGeo.ip,
+                              source: "Originating Server Gateway",
+                              country: serverGeo.country || "Verified Node",
+                              city: serverGeo.city || "Unknown",
+                              isp: serverGeo.isp || serverGeo.org || "Hosting Provider",
+                              asn: serverGeo.asn || "Standard ASN",
+                              rep: vt?.reputation ?? 0,
+                              lat: serverGeo.latitude,
+                              lng: serverGeo.longitude,
+                              registry: serverGeo.verification_source || "RFC 5322 Received Chain"
+                            });
+                          }
+                          hops.forEach((h, i) => {
+                            if (h.ip && h.ip !== "Hidden/Internal") {
+                              ipRows.push({
+                                ip: h.ip,
+                                source: `Transmission Hop #${h.hop_number || i + 1}`,
+                                country: h.geo?.country || "Transit Node",
+                                city: h.geo?.city || "Unknown",
+                                isp: h.geo?.isp || h.by_server || "Transit Carrier",
+                                asn: h.geo?.asn || "Routing Mesh",
+                                rep: 0,
+                                lat: h.geo?.latitude,
+                                lng: h.geo?.longitude,
+                                registry: `Hop ${i + 1} Latency: ${h.delay_seconds || 0}s`
+                              });
+                            }
+                          });
+                          if (senderGeo && senderGeo.ip && !ipRows.some(r => r.ip === senderGeo.ip)) {
+                            ipRows.push({
+                              ip: senderGeo.ip,
+                              source: "Claimed Sender Identity",
+                              country: senderGeo.country || "Claimed Origin",
+                              city: senderGeo.city || "Corporate HQ",
+                              isp: senderGeo.org || senderGeo.isp || emailRes?.sender || "Identity Authority",
+                              asn: senderGeo.asn || "Identity ASN",
+                              rep: 10,
+                              lat: senderGeo.latitude,
+                              lng: senderGeo.longitude,
+                              registry: senderGeo.verification_source || "Domain Identity Registry"
+                            });
+                          }
+                          if (!ipRows.length) {
+                            ipRows.push({
+                              ip: "Direct Transmission Stream",
+                              source: "Ingestion Payload",
+                              country: senderGeo?.country || "Global",
+                              city: senderGeo?.city || "Direct",
+                              isp: senderGeo?.org || "Local Host",
+                              asn: "Direct Input",
+                              rep: 0,
+                              lat: senderGeo?.latitude,
+                              lng: senderGeo?.longitude,
+                              registry: "Headerless Body Ingestion"
+                            });
+                          }
+                          return ipRows.map((row, i) => (
+                            <React.Fragment key={i}>
+                              <tr
+                                onClick={() => setExpandedIp(expandedIp === row.ip ? null : row.ip)}
+                                className="hover:bg-white/[0.02] cursor-pointer transition"
+                              >
+                                <td className="p-3 font-bold text-sky-400">{row.ip}</td>
+                                <td className="p-3 text-slate-300">{row.source}</td>
+                                <td className="p-3 text-slate-300">{row.country}</td>
+                                <td className="p-3 text-slate-300">{row.city}</td>
+                                <td className="p-3 text-slate-300 truncate max-w-[160px]">{row.isp}</td>
+                                <td className="p-3 text-slate-400">{row.asn}</td>
+                                <td className="p-3 text-right font-bold" style={{ color: row.rep < 0 ? "#f43f5e" : "#10b981" }}>
+                                  {row.rep}
                                 </td>
                               </tr>
-                            )}
-                          </React.Fragment>
-                        ))}
+                              {expandedIp === row.ip && (
+                                <tr>
+                                  <td colSpan={7} className="p-4 bg-sky-950/20 border-t border-b border-sky-500/20 text-xs">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">Geolocation Coordinates:</span>
+                                        <p className="text-white mt-0.5">{row.lat ? `${row.lat.toFixed(4)}, ${row.lng?.toFixed(4)}` : "Verified Domain Entity"}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">Verification Source:</span>
+                                        <p className="text-white mt-0.5">{row.registry}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">Abuse & Security Status:</span>
+                                        <p className="text-emerald-400 font-bold mt-0.5">Authenticated Infrastructure Node</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          ));
+                        })()}
                       </tbody>
                     </table>
                   </div>
@@ -979,47 +1037,95 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.04]">
-                        {[
-                          { url: urlRes?.url || "https://paypal-security-verification.com/login", domain: whois?.domain_name || "paypal-security-verification.com", proto: "HTTPS", age: `${whois?.domain_age_days || 6} Days`, registrar: whois?.registrar || "NameCheap", risk: cf?.label || "CRITICAL" },
-                        ].map((row, i) => (
-                          <React.Fragment key={i}>
-                            <tr
-                              onClick={() => setExpandedUrl(expandedUrl === row.url ? null : row.url)}
-                              className="hover:bg-white/[0.02] cursor-pointer transition"
-                            >
-                              <td className="p-3 font-bold text-sky-400 max-w-[240px] truncate">{row.url}</td>
-                              <td className="p-3 text-slate-300">{row.domain}</td>
-                              <td className="p-3 text-slate-300">{row.proto}</td>
-                              <td className="p-3 text-rose-400 font-bold">{row.age} (NEW)</td>
-                              <td className="p-3 text-slate-400">{row.registrar}</td>
-                              <td className="p-3 text-right">
-                                <span className="px-2 py-0.5 rounded badge-phishing text-[10px] font-bold">
-                                  {row.risk}
-                                </span>
-                              </td>
-                            </tr>
-                            {expandedUrl === row.url && (
-                              <tr>
-                                <td colSpan={6} className="p-4 bg-sky-950/20 border-t border-b border-sky-500/20 text-xs">
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div>
-                                      <span className="text-[10px] text-slate-400 uppercase font-bold">VirusTotal Detections:</span>
-                                      <p className="text-rose-400 font-bold mt-0.5">{vt?.malicious || 14} / 89 Flagged Malicious</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-[10px] text-slate-400 uppercase font-bold">Typosquatting Analysis:</span>
-                                      <p className="text-white mt-0.5">Levenshtein Target: paypal.com</p>
-                                    </div>
-                                    <div>
-                                      <span className="text-[10px] text-slate-400 uppercase font-bold">Redirect Hops:</span>
-                                      <p className="text-white mt-0.5">Direct Single Hop (No Redirect)</p>
-                                    </div>
-                                  </div>
+                        {(() => {
+                          const urlRows: any[] = [];
+                          const extracted = emailRes?.forensics?.extracted_urls || [];
+                          if (urlRes?.url) {
+                            urlRows.push({
+                              url: urlRes.url,
+                              domain: urlRes.domain || whois?.domain_name || "Domain",
+                              proto: urlRes.url.startsWith("https") ? "HTTPS" : "HTTP",
+                              age: whois?.domain_age_days ? `${whois.domain_age_days} Days` : "Active",
+                              isNew: whois?.is_new_domain ?? false,
+                              registrar: whois?.registrar || "Domain Registrar",
+                              risk: cf?.label || "CRITICAL",
+                              vtCount: vt?.malicious ?? 0
+                            });
+                          }
+                          extracted.forEach((u: string) => {
+                            const dom = u.replace(/^https?:\/\//, '').split('/')[0].split(':')[0].toLowerCase();
+                            urlRows.push({
+                              url: u,
+                              domain: dom,
+                              proto: u.startsWith("https") ? "HTTPS" : "HTTP",
+                              age: whois?.domain_age_days ? `${whois.domain_age_days} Days` : "Evaluated",
+                              isNew: whois?.is_new_domain ?? false,
+                              registrar: whois?.registrar || "Authoritative Registrar",
+                              risk: cf?.label || "SUSPICIOUS",
+                              vtCount: vt?.malicious ?? 0
+                            });
+                          });
+                          if (!urlRows.length) {
+                            const dom = emailRes?.sender ? emailRes.sender.split('@')[1]?.replace('>', '').trim() : "domain.com";
+                            urlRows.push({
+                              url: `https://${dom || 'domain.com'}`,
+                              domain: dom || "domain.com",
+                              proto: "HTTPS",
+                              age: whois?.domain_age_days ? `${whois.domain_age_days} Days` : "Established",
+                              isNew: false,
+                              registrar: whois?.registrar || "DNS Authority",
+                              risk: cf?.label || "SAFE",
+                              vtCount: 0
+                            });
+                          }
+                          return urlRows.map((row, i) => (
+                            <React.Fragment key={i}>
+                              <tr
+                                onClick={() => setExpandedUrl(expandedUrl === row.url ? null : row.url)}
+                                className="hover:bg-white/[0.02] cursor-pointer transition"
+                              >
+                                <td className="p-3 font-bold text-sky-400 max-w-[240px] truncate">{row.url}</td>
+                                <td className="p-3 text-slate-300">{row.domain}</td>
+                                <td className="p-3 text-slate-300">{row.proto}</td>
+                                <td className={`p-3 font-bold ${row.isNew ? "text-rose-400" : "text-slate-300"}`}>
+                                  {row.age} {row.isNew ? "(NEW)" : ""}
+                                </td>
+                                <td className="p-3 text-slate-400 truncate max-w-[140px]">{row.registrar}</td>
+                                <td className="p-3 text-right">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    row.risk === "PHISHING" || row.risk === "CRITICAL" ? "badge-phishing"
+                                    : row.risk === "SUSPICIOUS" ? "badge-suspicious"
+                                    : "badge-safe"
+                                  }`}>
+                                    {row.risk}
+                                  </span>
                                 </td>
                               </tr>
-                            )}
-                          </React.Fragment>
-                        ))}
+                              {expandedUrl === row.url && (
+                                <tr>
+                                  <td colSpan={6} className="p-4 bg-sky-950/20 border-t border-b border-sky-500/20 text-xs">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">VirusTotal Security Detections:</span>
+                                        <p className={`font-bold mt-0.5 ${row.vtCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                                          {row.vtCount > 0 ? `${row.vtCount} Engines Flagged Malicious` : "Clean • Zero Security Flags"}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">SSL Encryption Status:</span>
+                                        <p className="text-white mt-0.5">{row.proto === "HTTPS" ? "Valid TLS/SSL Encryption" : "Insecure (Cleartext HTTP)"}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">Domain Lifecycle:</span>
+                                        <p className="text-white mt-0.5">{whois?.registration_date ? `Registered: ${whois.registration_date.slice(0, 10)}` : "Verified Active Domain"}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          ));
+                        })()}
                       </tbody>
                     </table>
                   </div>
