@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Shield, 
   Activity, 
@@ -8,9 +8,8 @@ import {
   Settings as SettingsIcon, 
   ChevronRight, 
   Users, 
-  RefreshCw, 
-  LogOut,
-  Key
+  RefreshCw,
+  Sparkles
 } from "lucide-react";
 import { Dashboard } from "./components/Dashboard";
 import { EmailAnalyzer } from "./components/EmailAnalyzer";
@@ -54,13 +53,6 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: "success"|"error"|"info" } | null>(null);
   const [time, setTime]   = useState(new Date());
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
-
-  // SOC Clearance Onboarding State
-  const [onboardingOpen, setOnboardingOpen] = useState<boolean>(() => {
-    const hasToken = localStorage.getItem("forensic_jwt");
-    const dismissed = localStorage.getItem("soc_onboarding_dismissed");
-    return !hasToken && !dismissed;
-  });
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetchCurrentUser = async () => {
@@ -133,6 +125,9 @@ export default function App() {
     }
   };
 
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(true);
+  const prevSignedInRef = useRef<boolean | null>(null);
+
   const fetchStats = async () => {
     setLoadingStats(true);
     setStatsError(null);
@@ -150,7 +145,22 @@ export default function App() {
     }
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => {
+    if (isSignedIn && clerkUser) {
+      const email = clerkUser.primaryEmailAddress?.emailAddress || "";
+      const id = clerkUser.id;
+      localStorage.setItem("forensic_clerk_user", JSON.stringify({ id, email }));
+      setShowOnboarding(false);
+    } else if (!isSignedIn) {
+      localStorage.removeItem("forensic_clerk_user");
+      if (prevSignedInRef.current === true) {
+        setShowOnboarding(true);
+        showToast("Signed out. Returned to onboarding gateway.", "info");
+      }
+    }
+    prevSignedInRef.current = !!isSignedIn;
+    fetchStats();
+  }, [isSignedIn, clerkUser]);
 
   useEffect(() => {
     if (statsError && !loadingStats) {
@@ -165,18 +175,11 @@ export default function App() {
     fetchStats(); fetchCurrentUser(); setTriggerRefresh(p => !p); showToast("Telemetry refreshed", "info");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("forensic_jwt");
-    setCurrentUser(null);
-    showToast("Logged out of SOC session", "info");
-    fetchStats();
-  };
-
   const navItems = [
     { id: "dashboard", label: "SOC Dashboard",  subLabel: "Telemetry Overview",  icon: Activity },
     { id: "analyzer",  label: "Threat Analyzer", subLabel: "Scan & Investigate",  icon: Shield   },
     { id: "history",   label: "Incident Log",    subLabel: "Forensic Records",    icon: List     },
-    { id: "auth",      label: "SOC Clearance",   subLabel: currentUser ? "Operator Active" : "Login / Onboard", icon: Users },
+    { id: "auth",      label: "Authentication",  subLabel: isSignedIn ? (clerkUser?.primaryEmailAddress?.emailAddress?.split('@')[0] || "Clerk Verified") : "Sign In / Register", icon: Users },
     { id: "settings",  label: "Settings",        subLabel: "Preferences & API",   icon: SettingsIcon },
   ] as const;
 
@@ -185,21 +188,16 @@ export default function App() {
            : stats.suspicious_count > 0 ? "Elevated" : "Nominal")
            : "Standby";
 
-  // If Onboarding Portal is open, display full-screen gateway
-  if (onboardingOpen) {
+  if (showOnboarding && !isSignedIn) {
     return (
-      <SocOnboarding 
-        onComplete={(user) => {
-          setCurrentUser(user);
-          setOnboardingOpen(false);
-          localStorage.setItem("soc_onboarding_dismissed", "true");
-          showToast(`Welcome, ${user?.email || "Analyst"}. Clearance Granted.`, "success");
+      <SocOnboarding
+        onComplete={() => {
+          setShowOnboarding(false);
           fetchStats();
         }}
         onSkip={() => {
-          setOnboardingOpen(false);
-          localStorage.setItem("soc_onboarding_dismissed", "true");
-          showToast("Guest Operator Clearance active", "info");
+          setShowOnboarding(false);
+          fetchStats();
         }}
       />
     );
@@ -353,21 +351,12 @@ export default function App() {
             
             <div className="flex items-center gap-1 shrink-0">
               <button
-                onClick={() => setOnboardingOpen(true)}
+                onClick={() => setActiveTab("auth")}
                 className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-white/[0.06] text-slate-400 hover:text-sky-300 transition"
-                title="Clearance Gateway"
+                title="Security Account"
               >
-                <Key className="w-3.5 h-3.5" />
+                <Users className="w-3.5 h-3.5" />
               </button>
-              {currentUser && (
-                <button
-                  onClick={handleLogout}
-                  className="p-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition"
-                  title="Logout Session"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -413,14 +402,17 @@ export default function App() {
               </div>
             )}
 
-            {/* SOC ONBOARDING / CLEARANCE GATEWAY BUTTON */}
+            {/* Quick Tour / Gateway Link */}
             <button
-              onClick={() => setOnboardingOpen(true)}
-              className="px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono text-[11px] flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(0,240,255,0.15)]"
-              title="Open Security Clearance Gateway"
+              onClick={() => {
+                localStorage.removeItem("soc_analyst_guest");
+                setShowOnboarding(true);
+              }}
+              className="px-2.5 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono text-[11px] flex items-center gap-1 transition"
+              title="Open Platform Onboarding & Overview"
             >
-              <Key className="w-3 h-3 text-cyan-400" />
-              <span className="hidden sm:inline font-bold">SOC CLEARANCE</span>
+              <Sparkles className="w-3 h-3 text-cyan-400" />
+              <span className="hidden xl:inline">TOUR</span>
             </button>
 
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-[12px]" style={{ background: "var(--panel)", borderColor: "var(--border)", color: "var(--muted)" }}>

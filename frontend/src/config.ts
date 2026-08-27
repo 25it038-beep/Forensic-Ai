@@ -172,11 +172,22 @@ export function getOfflineUrlAnalysis(url: string) {
 
 function getAuthHeader(): Record<string, string> {
   try {
-    const t = typeof window !== 'undefined' ? localStorage.getItem('forensic_jwt') : null;
-    if (t && t !== 'undefined' && t !== 'null' && typeof t === 'string' && t.split('.').length === 3) {
-      return { Authorization: `Bearer ${t.trim()}` };
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const t = localStorage.getItem('forensic_jwt');
+      if (t && t !== 'undefined' && t !== 'null' && typeof t === 'string' && t.split('.').length === 3) {
+        headers['Authorization'] = `Bearer ${t.trim()}`;
+      }
+      const clerkRaw = localStorage.getItem('forensic_clerk_user');
+      if (clerkRaw) {
+        try {
+          const parsed = JSON.parse(clerkRaw);
+          if (parsed.id) headers['X-Clerk-User-Id'] = parsed.id;
+          if (parsed.email) headers['X-Clerk-User-Email'] = parsed.email;
+        } catch {}
+      }
     }
-    return {};
+    return headers;
   } catch { return {}; }
 }
 

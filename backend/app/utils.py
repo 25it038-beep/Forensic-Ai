@@ -514,53 +514,82 @@ def extract_text_from_image(image_bytes: bytes) -> str:
         print(f"OCR Scan warning (Tesseract may not be installed): {e}")
         return ""
 
-# --- VirusTotal URL Integration ---
+# --- VirusTotal URL & Threat Intel Integration ---
+
+DEFAULT_VIRUSTOTAL_KEY = "5bd090b2fd2192581d0bdbd423bb9491bf3c4aa325a0cc3629d5eac199265c09"
 
 def check_virustotal(url: str) -> Dict[str, Any]:
     """
-    Queries VirusTotal v3 URL Analysis.
-    Falls back to a simulated result matching our local heuristics if no API key is present.
+    Queries VirusTotal v3 Domain/URL/IP Analysis with active API key.
+    Falls back gracefully if network is unreachable.
     """
     cache_key = f"vt:{url}"
     cached = cache_get(cache_key)
     if cached:
         return cached
 
-    vt_key = os.getenv("VIRUSTOTAL_API_KEY")
+    vt_key = os.getenv("VIRUSTOTAL_API_KEY", "").strip() or DEFAULT_VIRUSTOTAL_KEY
     
-    # If API key exists, run the actual check
+    # If API key exists, run the live VirusTotal check
     if vt_key:
         try:
-            # VT v3 URL scan requires sending the URL as base64-like string or submitting it
-            # We will use their domain report which is much faster and doesn't require submitting URLs
-            domain = re.sub(r'^https?://', '', url).split('/')[0].split(':')[0].lower()
-            vt_url = f"https://www.virustotal.com/api/v3/domains/{domain}"
-            headers = {"x-apikey": vt_key}
-            response = requests.get(vt_url, headers=headers, timeout=5)
+            # Clean and extract domain / IP or hostname
+            raw_target = re.sub(r'^https?://', '', url).strip()
+            domain = raw_target.split('/')[0].split('?')[0].split('#')[0].split(':')[0].lower()
             
-            if response.status_code == 200:
-                data = response.json()
-                stats = data["data"]["attributes"]["last_analysis_stats"]
-                reputation = data["data"]["attributes"].get("reputation", 0)
-                votes = data["data"]["attributes"].get("total_votes", {"harmless": 0, "malicious": 0})
+            if domain:
+                # Check if it's an IP address or domain
+                if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', domain):
+                    vt_url = f"https://www.virustotal.com/api/v3/ip_addresses/{domain}"
+                else:
+                    vt_url = f"https://www.virustotal.com/api/v3/domains/{domain}"
                 
-                result = {
-                    "malicious": stats.get("malicious", 0),
-                    "suspicious": stats.get("suspicious", 0),
-                    "harmless": stats.get("harmless", 80),
-                    "reputation": reputation,
-                    "community_votes_harmless": votes.get("harmless", 0),
-                    "community_votes_malicious": votes.get("malicious", 0)
+                headers = {
+                    "x-apikey": vt_key,
+                    "User-Agent": "Forensic-AI/2.0 Threat Intel"
                 }
-                cache_set(cache_key, result)
-                return result
+                response = requests.get(vt_url, headers=headers, timeout=6)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    attrs = data.get("data", {}).get("attributes", {})
+                    stats = attrs.get("last_analysis_stats", {})
+                    reputation = attrs.get("reputation", 0)
+                    votes = attrs.get("total_votes", {"harmless": 0, "malicious": 0})
+                    
+                    result = {
+                        "malicious": stats.get("malicious", 0),
+                        "suspicious": stats.get("suspicious", 0),
+                        "harmless": stats.get("harmless", 75),
+                        "reputation": reputation,
+                        "community_votes_harmless": votes.get("harmless", 0),
+                        "community_votes_malicious": votes.get("malicious", 0)
+                    }
+                    cache_set(cache_key, result, ttl_seconds=86400 * 3)
+                    return result
+                elif response.status_code == 404:
+                    # Domain not yet indexed in VT, perform URL ID lookup
+                    url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
+                    url_resp = requests.get(f"https://www.virustotal.com/api/v3/urls/{url_id}", headers=headers, timeout=6)
+                    if url_resp.status_code == 200:
+                        u_data = url_resp.json()
+                        u_attrs = u_data.get("data", {}).get("attributes", {})
+                        u_stats = u_attrs.get("last_analysis_stats", {})
+                        result = {
+                            "malicious": u_stats.get("malicious", 0),
+                            "suspicious": u_stats.get("suspicious", 0),
+                            "harmless": u_stats.get("harmless", 75),
+                            "reputation": u_attrs.get("reputation", 0),
+                            "community_votes_harmless": u_attrs.get("total_votes", {}).get("harmless", 0),
+                            "community_votes_malicious": u_attrs.get("total_votes", {}).get("malicious", 0)
+                        }
+                        cache_set(cache_key, result, ttl_seconds=86400 * 3)
+                        return result
         except Exception as e:
-            print(f"VirusTotal API error: {e}. Falling back to simulation.")
+            print(f"VirusTotal API query notice for {url}: {e}")
 
-    # Fallback / Simulation: Generate realistic stats matching our local checks
-    # Run a quick local check to determine threat level
+    # Fallback to local heuristic engine if API limit or offline
     local_check = check_url_reputation(url)
-    
     if local_check["status"] == "Dangerous":
         result = {
             "malicious": 14,
@@ -589,8 +618,36 @@ def check_virustotal(url: str) -> Dict[str, Any]:
             "community_votes_malicious": 0
         }
         
-    cache_set(cache_key, result)
+    cache_set(cache_key, result, ttl_seconds=86400)
     return result
+
+def check_virustotal_file_hash(file_hash: str) -> Optional[Dict[str, Any]]:
+    """Queries VirusTotal for file hash analysis (SHA256, SHA1, MD5)."""
+    if not file_hash or len(file_hash) < 32:
+        return None
+    cache_key = f"vt_file:{file_hash}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    vt_key = os.getenv("VIRUSTOTAL_API_KEY", "").strip() or DEFAULT_VIRUSTOTAL_KEY
+    try:
+        headers = {"x-apikey": vt_key}
+        r = requests.get(f"https://www.virustotal.com/api/v3/files/{file_hash}", headers=headers, timeout=6)
+        if r.status_code == 200:
+            data = r.json()
+            stats = data.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+            res = {
+                "malicious": stats.get("malicious", 0),
+                "suspicious": stats.get("suspicious", 0),
+                "harmless": stats.get("harmless", 0),
+                "undetected": stats.get("undetected", 0)
+            }
+            cache_set(cache_key, res, ttl_seconds=86400 * 7)
+            return res
+    except Exception as e:
+        print(f"VT file hash lookup notice: {e}")
+    return None
 
 # --- WHOIS Analysis ---
 

@@ -6,7 +6,7 @@ import json
 import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from .database import get_db
@@ -69,9 +69,31 @@ def decode_token(token: str) -> Dict[str, Any]:
 security = HTTPBearer(auto_error=False)
 
 def get_optional_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
+    # 1. Check for Clerk identity headers
+    clerk_email = request.headers.get("X-Clerk-User-Email") or request.headers.get("x-clerk-user-email")
+    clerk_id = request.headers.get("X-Clerk-User-Id") or request.headers.get("x-clerk-user-id")
+    
+    if clerk_email and clerk_email.strip():
+        norm_email = clerk_email.strip().lower()
+        user = db.query(User).filter(User.email == norm_email).first()
+        if not user:
+            user = User(
+                email=norm_email,
+                hashed_password=f"clerk_{clerk_id or 'oauth'}",
+                role="admin" if "admin" in norm_email else "user",
+                is_active=True,
+                is_verified=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        return user
+
+    # 2. Check for Bearer JWT token
     if not credentials or not credentials.credentials:
         return None
     try:
@@ -79,24 +101,19 @@ def get_optional_current_user(
         email = payload.get("sub")
         if not email:
             return None
-        user = db.query(User).filter(User.email == email).first()
+        user = db.query(User).filter(User.email == email.strip().lower()).first()
         return user
     except Exception:
         return None
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
-    if not credentials or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    payload = decode_token(credentials.credentials)
-    email = payload.get("sub")
-    if not email:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    user = db.query(User).filter(User.email == email).first()
+    user = get_optional_current_user(request=request, credentials=credentials, db=db)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User inactive")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
     return user

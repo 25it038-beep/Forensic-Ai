@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -144,7 +144,7 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<L.Map | null>(null);
   const layersRef    = useRef<L.Layer[]>([]);
-  const [ready, setReady] = useState(false);
+  const ready = true;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -155,10 +155,8 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
       layersRef.current = [];
     }
 
-    setReady(false);
-
-    // If points exist and have coordinates, center on first valid point. Otherwise global view.
-    const validPoints = points.filter(p => p.lat !== 0 || p.lng !== 0);
+    // Filter valid points with non-zero coordinates
+    const validPoints = points.filter(p => p && (p.lat !== 0 || p.lng !== 0) && !isNaN(p.lat) && !isNaN(p.lng));
     const centerLat = validPoints.length > 0 ? validPoints[0].lat : 20.0;
     const centerLng = validPoints.length > 0 ? validPoints[0].lng : 0.0;
     const defaultZoom = validPoints.length > 0 ? 4 : 2;
@@ -175,16 +173,14 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
 
       mapRef.current = map;
 
-      // Add Tile Layer with fallback
+      // Add Primary Tile Layer
       const tileLayer = L.tileLayer(PRIMARY_TILE_URL, {
         subdomains:  "abcd",
         maxZoom:     19,
         attribution: TILE_ATTRIB,
       });
 
-      tileLayer.on("load", () => setReady(true));
       tileLayer.on("tileerror", () => {
-        // Fallback tile layer
         const fallback = L.tileLayer(FALLBACK_TILE_URL, { maxZoom: 18 });
         fallback.addTo(map);
         layersRef.current.push(fallback);
@@ -200,8 +196,8 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
         // Glow polyline
         const glow = L.polyline(latlngs, {
           color:   "#a855f7",
-          weight:  7,
-          opacity: 0.22,
+          weight:  6,
+          opacity: 0.35,
           lineCap: "round",
         }).addTo(map);
         layersRef.current.push(glow);
@@ -239,18 +235,29 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
         map.setView([validPoints[0].lat, validPoints[0].lng], 5);
       } else if (validPoints.length > 1) {
         const bounds = L.latLngBounds(validPoints.map(p => [p.lat, p.lng] as L.LatLngTuple));
-        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 7 });
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 7 });
       }
 
-      // Force size recalculation on tab changes
+      // Invalidate size on load and resize
+      map.invalidateSize();
       const timers = [
-        setTimeout(() => { map.invalidateSize(); setReady(true); }, 50),
-        setTimeout(() => { map.invalidateSize(); }, 200),
-        setTimeout(() => { map.invalidateSize(); }, 500),
+        setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize(); }, 60),
+        setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize(); }, 250),
+        setTimeout(() => { if (mapRef.current) mapRef.current.invalidateSize(); }, 600),
       ];
+
+      // Auto-resize observer
+      let resizeObs: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+        resizeObs = new ResizeObserver(() => {
+          if (mapRef.current) mapRef.current.invalidateSize();
+        });
+        resizeObs.observe(containerRef.current);
+      }
 
       return () => {
         timers.forEach(clearTimeout);
+        if (resizeObs) resizeObs.disconnect();
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;

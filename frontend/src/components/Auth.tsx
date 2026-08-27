@@ -1,114 +1,109 @@
-import React, { useState, useEffect } from "react";
-import { User, LogIn, UserPlus, LogOut, Shield } from "lucide-react";
-import { apiRequest, parseApiError } from "../config";
+import React, { useState } from "react";
+import { Shield, Key, CheckCircle } from "lucide-react";
+import { SignIn, SignUp, UserProfile, useUser, useClerk } from "@clerk/react";
 
 interface AuthProps {
   onAuthChange?: () => void;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
-  const [mode, setMode] = useState<"login"|"register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+export const Auth: React.FC<AuthProps> = () => {
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
 
-  const tokenKey = "forensic_jwt";
-  const getToken = () => localStorage.getItem(tokenKey);
-
-  const fetchMe = async () => {
-    const t = getToken();
-    if (!t) { setUser(null); return; }
-    try {
-      const me = await apiRequest<any>("/api/auth/me", { headers: { Authorization: `Bearer ${t}` } as any });
-      setUser(me);
-    } catch {
-      localStorage.removeItem(tokenKey);
-      setUser(null);
-    }
-  };
-
-  useEffect(() => { fetchMe(); }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null); setLoading(true);
-    try {
-      if (mode === "register") {
-        await apiRequest("/api/auth/register", { method: "post", data: { email, password } });
-        // auto login after register
-      }
-      const data: any = await apiRequest("/api/auth/login", { method: "post", data: { email, password } });
-      localStorage.setItem(tokenKey, data.access_token);
-      setUser(data.user);
-      setEmail(""); setPassword("");
-      onAuthChange?.();
-    } catch (err: any) {
-      setError(parseApiError(err));
-    } finally { setLoading(false); }
-  };
-
-  const logout = () => {
-    localStorage.removeItem(tokenKey);
-    setUser(null);
-    onAuthChange?.();
-  };
-
-  if (user) {
+  if (isSignedIn && user) {
     return (
-      <div className="panel rounded-xl p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-            <User className="w-4 h-4 text-emerald-400" />
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Active Session Banner */}
+        <div className="p-5 rounded-2xl border border-sky-500/30 bg-sky-950/20 backdrop-blur flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center shrink-0 overflow-hidden">
+              {user.imageUrl ? (
+                <img src={user.imageUrl} alt={user.fullName || "User"} className="w-10 h-10 rounded-lg object-cover" />
+              ) : (
+                <Shield className="w-6 h-6 text-sky-400" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white font-mono">
+                  {user.fullName || user.primaryEmailAddress?.emailAddress?.split("@")[0] || "SOC Analyst"}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Clerk Verified
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                {user.primaryEmailAddress?.emailAddress}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-code text-xs font-bold text-white">{user.email}</p>
-            <p className="font-code text-[9px] text-slate-500 uppercase">{user.role} · {user.is_verified ? "verified" : "active"}</p>
+
+          <div className="flex items-center gap-2.5 w-full md:w-auto">
+            <button
+              onClick={() => signOut()}
+              className="w-full md:w-auto px-4 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-mono text-xs font-semibold transition"
+            >
+              Sign Out
+            </button>
           </div>
-          <Shield className="w-4 h-4 text-emerald-400 ml-auto" />
         </div>
-        <div className="flex gap-2">
-          <button onClick={logout} className="btn-danger flex items-center gap-2">
-            <LogOut className="w-3.5 h-3.5" /> LOGOUT
-          </button>
-          <a href="#" onClick={(e)=>{e.preventDefault(); fetchMe();}} className="px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06] font-code text-[10px] text-slate-400 hover:text-white">REFRESH</a>
+
+        {/* Clerk Profile Manager */}
+        <div className="p-4 rounded-2xl border border-white/[0.08] bg-black/40 shadow-xl overflow-hidden flex justify-center">
+          <UserProfile routing="hash" />
         </div>
-        <p className="font-code text-[9px] text-slate-600">JWT stored in localStorage. History & stats are now scoped to your account. Admin sees all.</p>
       </div>
     );
   }
 
   return (
-    <div className="panel rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-orbitron text-sm font-bold text-white flex items-center gap-2">
-          {mode === "login" ? <LogIn className="w-4 h-4 text-cyan-400"/> : <UserPlus className="w-4 h-4 text-cyan-400"/>}
-          {mode === "login" ? "SOC LOGIN" : "CREATE ACCOUNT"}
-        </h3>
-        <button onClick={()=>{setMode(mode==="login"?"register":"login"); setError(null);}} className="font-code text-[10px] text-cyan-400 hover:text-cyan-300 underline">
-          {mode === "login" ? "Need account? Register" : "Have account? Login"}
+    <div className="max-w-xl mx-auto space-y-6 py-6">
+      {/* Header Info */}
+      <div className="text-center space-y-2">
+        <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center mx-auto shadow-lg shadow-sky-500/10">
+          <Key className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold font-mono text-white tracking-tight">
+          SOC Analyst Authentication
+        </h2>
+        <p className="text-xs text-slate-400 font-mono max-w-sm mx-auto">
+          Secure multi-factor identity powered by Clerk. Authenticate to sync your forensic telemetry and incident investigations.
+        </p>
+      </div>
+
+      {/* Mode Switcher */}
+      <div className="flex justify-center gap-2 p-1 rounded-xl bg-white/[0.04] border border-white/[0.08] max-w-xs mx-auto">
+        <button
+          onClick={() => setAuthMode("signin")}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition ${
+            authMode === "signin"
+              ? "bg-sky-500 text-slate-950 shadow"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          Sign In
+        </button>
+        <button
+          onClick={() => setAuthMode("signup")}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition ${
+            authMode === "signup"
+              ? "bg-sky-500 text-slate-950 shadow"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          Sign Up
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          type="email" required value={email} onChange={(e)=>setEmail(e.target.value)}
-          placeholder="analyst@soc.example"
-          className="w-full bg-[#02040a] border border-white/[0.07] rounded-lg px-3 py-2.5 font-code text-[11px] text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/30"
-        />
-        <input
-          type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)}
-          placeholder="•••••••• (min 6)"
-          className="w-full bg-[#02040a] border border-white/[0.07] rounded-lg px-3 py-2.5 font-code text-[11px] text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/30"
-        />
-        {error && <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 font-code text-[10px] text-red-400">{error}</div>}
-        <button type="submit" disabled={loading} className="w-full btn-primary">
-          {loading ? "PROCESSING..." : mode==="login" ? "LOGIN & LOAD TELEMETRY" : "REGISTER & LOGIN"}
-        </button>
-      </form>
-
-      <p className="font-code text-[9px] text-slate-600 text-center">No email verification required in demo. Passwords hashed with PBKDF2.</p>
+      {/* Clerk Embedded Authentication Card */}
+      <div className="flex justify-center">
+        {authMode === "signin" ? (
+          <SignIn routing="hash" />
+        ) : (
+          <SignUp routing="hash" />
+        )}
+      </div>
     </div>
   );
 };
