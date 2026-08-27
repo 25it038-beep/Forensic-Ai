@@ -665,11 +665,25 @@ async def analyze_url_endpoint(
     })
     return result
 
+def get_user_scope_filter(current_user: Optional[User]):
+    """
+    Multi-tenant Data Isolation Security Policy:
+    - Admin: Platform-wide telemetry & aggregated security metrics.
+    - Authenticated User: Strictly isolated to their own records (user_id == current_user.id).
+    - Unauthenticated Guest: Strictly isolated to unauthenticated session (user_id IS NULL).
+      No individual user data is EVER leaked across sessions or accounts.
+    """
+    if current_user:
+        if getattr(current_user, "role", "") == "admin":
+            return True
+        return ScanHistory.user_id == current_user.id
+    return ScanHistory.user_id.is_(None)
+
+@app.get("/history", response_model=List[PredictResponse])
 @app.get("/api/history", response_model=List[PredictResponse])
 def get_history(limit: int = 50, skip: int = 0, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
-    query = db.query(ScanHistory)
-    if current_user and current_user.role != "admin":
-        query = query.filter(ScanHistory.user_id == current_user.id)
+    scope_filter = get_user_scope_filter(current_user)
+    query = db.query(ScanHistory).filter(scope_filter)
     history_items = query.order_by(ScanHistory.created_at.desc()).offset(skip).limit(limit).all()
     response = []
     for item in history_items:
@@ -692,9 +706,56 @@ def get_history(limit: int = 50, skip: int = 0, db: Session = Depends(get_db), c
         ))
     return response
 
+@app.get("/history/{scan_id}", response_model=PredictResponse)
+@app.get("/api/history/{scan_id}", response_model=PredictResponse)
+def get_scan_by_id(scan_id: int, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
+    item = db.query(ScanHistory).filter(ScanHistory.id == scan_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Scan record not found")
+    if current_user:
+        if current_user.role != "admin" and item.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied: You do not have permission to view another user's scan data.")
+    elif item.user_id is not None:
+        raise HTTPException(status_code=403, detail="Access denied: Authentication required.")
+    
+    indicators = json.loads(item.detected_indicators) if item.detected_indicators else {}
+    vt = VirusTotalResult(**json.loads(item.virustotal_results)) if item.virustotal_results else None
+    whois_res = WhoisResult(**json.loads(item.whois_results)) if item.whois_results else None
+    email_auth = EmailAuthResult(**json.loads(item.email_auth_results)) if item.email_auth_results else EmailAuthResult()
+    attachments = [AttachmentInfo(**a) for a in json.loads(item.attachment_analysis)] if item.attachment_analysis else []
+    llm = LlmAnalysisResult(**json.loads(item.llm_analysis)) if item.llm_analysis else None
+    geo = GeoLocationResult(**json.loads(item.geolocation_data)) if item.geolocation_data else None
+    forensics_obj = DigitalForensicsResult(**json.loads(item.forensics_data)) if item.forensics_data else None
+    reconstructed = classifier.predict(item.body_preview, sender=item.sender or "", subject=item.subject or "")
+    return PredictResponse(
+        id=item.id, user_id=item.user_id, subject=item.subject, sender=item.sender,
+        classification=item.classification, confidence_score=item.confidence_score, risk_score=item.risk_score,
+        explanation=item.explanation, detected_indicators=indicators, highlighted_text=reconstructed["highlighted_text"],
+        xai_keywords=reconstructed["xai_keywords"], created_at=item.created_at,
+        threat_type=item.threat_type, virustotal_results=vt, whois_results=whois_res, email_auth_results=email_auth,
+        attachment_analysis=attachments, llm_analysis=llm, geolocation=geo, forensics=forensics_obj
+    )
+
+@app.delete("/history/{scan_id}")
+@app.delete("/api/history/{scan_id}")
+def delete_scan(scan_id: int, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
+    item = db.query(ScanHistory).filter(ScanHistory.id == scan_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Scan record not found")
+    if current_user:
+        if current_user.role != "admin" and item.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied: You cannot delete another user's scan data.")
+    elif item.user_id is not None:
+        raise HTTPException(status_code=403, detail="Access denied: Authentication required.")
+    
+    db.delete(item)
+    db.commit()
+    return {"status": "success", "message": f"Scan {scan_id} deleted securely"}
+
+@app.get("/stats", response_model=StatsResponse)
 @app.get("/api/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
-    filter_user = ScanHistory.user_id == current_user.id if (current_user and current_user.role != "admin") else True
+    filter_user = get_user_scope_filter(current_user)
     total = db.query(ScanHistory).filter(filter_user).count()
     safe = db.query(ScanHistory).filter(filter_user, ScanHistory.classification == "Safe").count()
     suspicious = db.query(ScanHistory).filter(filter_user, ScanHistory.classification == "Suspicious").count()
@@ -742,7 +803,6 @@ def get_stats(db: Session = Depends(get_db), current_user: Optional[User] = Depe
     danger_domains = [{"domain": dom, "risk": r} for dom, r in danger_domains_query if dom]
     countries_query = db.query(ScanHistory.country, func.count(ScanHistory.id)).filter(filter_user, ScanHistory.country.isnot(None)).group_by(ScanHistory.country).all()
     country_distribution = {c or "Unknown": count for c, count in countries_query if c and c != "Unknown"}
-    # No fake fallback: return empty dict if no real data
     file_types_query = db.query(ScanHistory.file_type, func.count(ScanHistory.id)).filter(filter_user).group_by(ScanHistory.file_type).all()
     file_type_distribution = {ft or "TXT": count for ft, count in file_types_query if ft}
     asn_counts: Dict[str, int] = {}
@@ -763,7 +823,6 @@ def get_stats(db: Session = Depends(get_db), current_user: Optional[User] = Depe
         except Exception:
             continue
     top_asns = [{"asn": k, "count": v} for k, v in sorted(asn_counts.items(), key=lambda x: x[1], reverse=True)[:5]]
-    # No fake fallback: empty list if no data
     spoofing_rate = round((spoofed_headers_count / total * 100), 1) if total > 0 else 0.0
     recent_items = db.query(ScanHistory).filter(filter_user).order_by(ScanHistory.created_at.desc()).limit(5).all()
     recent_scans = []
@@ -822,12 +881,11 @@ async def bulk_predict(request: Request, payload: BulkPredictRequest, db: Sessio
         results.append(PredictResponse(**res))
     return results
 
+@app.get("/history/export")
 @app.get("/api/history/export")
 def export_history(limit: int = 100, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
-    q = db.query(ScanHistory)
-    if current_user and current_user.role != "admin":
-        q = q.filter(ScanHistory.user_id == current_user.id)
-    rows = q.order_by(ScanHistory.created_at.desc()).limit(min(limit, 1000)).all()
+    scope_filter = get_user_scope_filter(current_user)
+    rows = db.query(ScanHistory).filter(scope_filter).order_by(ScanHistory.created_at.desc()).limit(min(limit, 1000)).all()
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["id","created_at","classification","risk_score","confidence","subject","sender","domain","country","threat_type"])
@@ -855,15 +913,14 @@ class RecommendRequestModel(_BaseModel):
 @app.post("/api/chat")
 @limiter.limit("30/minute")
 async def chat_endpoint(request: Request, payload: ChatRequestModel, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
-    # Build context from DB if requested
+    # Build context from DB strictly isolated to current user
     stats_data = None
     history_data = None
+    scope_filter = get_user_scope_filter(current_user)
     if payload.use_history:
         try:
-            # reuse stats logic (lightweight)
-            total = db.query(ScanHistory).count()
-            # fetch recent 5 for context
-            recent = db.query(ScanHistory).order_by(ScanHistory.created_at.desc()).limit(5).all()
+            total = db.query(ScanHistory).filter(scope_filter).count()
+            recent = db.query(ScanHistory).filter(scope_filter).order_by(ScanHistory.created_at.desc()).limit(5).all()
             history_data = [{"id": r.id, "classification": r.classification, "risk_score": r.risk_score, "subject": r.subject, "sender": r.sender, "threat_type": r.threat_type, "created_at": r.created_at.isoformat() if r.created_at else None} for r in recent]
             stats_data = {"total_scans": total, "recent_count": len(history_data)}
         except Exception:
@@ -892,14 +949,15 @@ async def chat_endpoint(request: Request, payload: ChatRequestModel, db: Session
 @app.post("/api/chat/recommend")
 @limiter.limit("30/minute")
 async def recommend_endpoint(request: Request, payload: RecommendRequestModel, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_optional_current_user)):
-    # Enrich with real stats/history if not provided
+    # Enrich with real stats/history strictly isolated to current user
     stats_data = payload.stats
     history_data = payload.history
+    scope_filter = get_user_scope_filter(current_user)
     if stats_data is None or history_data is None:
         try:
-            total = db.query(ScanHistory).count()
-            phishing = db.query(ScanHistory).filter(ScanHistory.classification == "Phishing").count()
-            recent = db.query(ScanHistory).order_by(ScanHistory.created_at.desc()).limit(5).all()
+            total = db.query(ScanHistory).filter(scope_filter).count()
+            phishing = db.query(ScanHistory).filter(scope_filter, ScanHistory.classification == "Phishing").count()
+            recent = db.query(ScanHistory).filter(scope_filter).order_by(ScanHistory.created_at.desc()).limit(5).all()
             if stats_data is None:
                 stats_data = {"total_scans": total, "phishing_count": phishing, "phishing_rate": round(phishing/total*100,1) if total else 0}
             if history_data is None:
