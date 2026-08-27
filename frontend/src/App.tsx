@@ -19,6 +19,12 @@ import { Auth } from "./components/Auth";
 import { Settings } from "./components/Settings";
 import { ChatPanel } from "./components/ChatPanel";
 import { SocOnboarding } from "./components/SocOnboarding";
+import { 
+  SignInButton, 
+  SignUpButton, 
+  UserButton, 
+  useUser 
+} from "@clerk/react";
 import { parseApiError, executeWithRetry, apiRequest } from "./config";
 
 interface StatsData {
@@ -39,6 +45,7 @@ interface StatsData {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"dashboard"|"analyzer"|"history"|"auth"|"settings">("dashboard");
+  const { isSignedIn, user: clerkUser } = useUser();
   const [stats, setStats]         = useState<StatsData | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -310,22 +317,39 @@ export default function App() {
         {/* Bottom Section: Analyst Profile & Session Footer */}
         <div className="p-3 border-t" style={{ borderColor: "var(--border)", background: "var(--panel)" }}>
           <div className="p-2.5 rounded-xl border border-white/[0.06] bg-black/20 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-sky-950/80 border border-sky-500/30 flex items-center justify-center text-sky-400 font-mono font-bold text-xs shrink-0">
-                {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : "A"}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-mono font-bold truncate text-white">
-                  {currentUser?.email ? currentUser.email.split('@')[0] : "Guest Analyst"}
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${currentUser ? "bg-emerald-400" : "bg-amber-400"}`} />
-                  <p className="text-[9px] font-mono text-slate-400 truncate uppercase">
-                    {currentUser?.role ? currentUser.role : "Level-1 Clearance"}
+            {isSignedIn ? (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <UserButton />
+                <div className="min-w-0">
+                  <p className="text-xs font-mono font-bold truncate text-white">
+                    {clerkUser?.fullName || clerkUser?.primaryEmailAddress?.emailAddress?.split('@')[0] || "Analyst"}
                   </p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" />
+                    <p className="text-[9px] font-mono text-slate-400 truncate uppercase">
+                      Clerk Verified
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-sky-950/80 border border-sky-500/30 flex items-center justify-center text-sky-400 font-mono font-bold text-xs shrink-0">
+                  {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : "G"}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-mono font-bold truncate text-white">
+                    {currentUser?.email ? currentUser.email.split('@')[0] : "Guest Analyst"}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${currentUser ? "bg-emerald-400" : "bg-amber-400"}`} />
+                    <p className="text-[9px] font-mono text-slate-400 truncate uppercase">
+                      {currentUser?.role ? currentUser.role : "Level-1 Clearance"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -366,6 +390,29 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             
+            {/* Clerk Authentication Controls */}
+            {isSignedIn ? (
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full border border-white/[0.08] bg-black/20">
+                <UserButton />
+                <span className="text-[11px] font-mono text-slate-300 hidden md:inline truncate max-w-[130px]">
+                  {clerkUser?.primaryEmailAddress?.emailAddress?.split('@')[0] || clerkUser?.fullName || "Analyst"}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <SignInButton mode="modal">
+                  <button className="px-3 py-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-mono text-[11px] font-bold transition">
+                    Sign In
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="px-3 py-1.5 rounded-full border border-sky-400 bg-sky-500 hover:bg-sky-400 text-slate-950 font-mono text-[11px] font-bold transition shadow-sm">
+                    Sign Up
+                  </button>
+                </SignUpButton>
+              </div>
+            )}
+
             {/* SOC ONBOARDING / CLEARANCE GATEWAY BUTTON */}
             <button
               onClick={() => setOnboardingOpen(true)}

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/react": "^6.14.7",
     "@types/leaflet": "^1.9.22",
     "axios": "^1.18.1",
     "canvas-confetti": "^1.9.4",
