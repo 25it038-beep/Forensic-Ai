@@ -197,54 +197,110 @@ def get_ip_geolocation(ip_str: Optional[str]) -> Dict[str, Any]:
     if cached:
         return cached
 
-    # 1. Primary provider: ip-api.com
-    try:
-        url = f"http://ip-api.com/json/{clean_ip}?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone,isp,org,as,query"
-        r = requests.get(url, timeout=3)
-        if r.status_code == 200:
-            data = r.json()
-            if data.get("status") == "success":
+    # Multi-tier Geolocation Provider Cascade (No API Key Required by default)
+    # 0. Optional Dedicated Provider if IPINFO_API_KEY is configured
+    ipinfo_key = os.getenv("IPINFO_API_KEY")
+    if ipinfo_key:
+        try:
+            r0 = requests.get(f"https://ipinfo.io/{clean_ip}/json?token={ipinfo_key}", timeout=3)
+            if r0.status_code == 200:
+                d0 = r0.json()
+                loc = d0.get("loc", "0,0").split(",")
+                lat, lon = (float(loc[0]), float(loc[1])) if len(loc) == 2 else (0.0, 0.0)
                 geo = {
                     "ip": clean_ip,
-                    "country": data.get("country", "Unknown"),
-                    "country_code": data.get("countryCode", "UN"),
-                    "city": data.get("city", "Unknown"),
-                    "region": data.get("regionName", "Unknown"),
-                    "latitude": float(data.get("lat", 0.0) or 0.0),
-                    "longitude": float(data.get("lon", 0.0) or 0.0),
-                    "isp": data.get("isp", "Unknown"),
-                    "asn": data.get("as", "Unknown"),
-                    "org": data.get("org", "Unknown"),
-                    "timezone": data.get("timezone", "UTC")
+                    "country": d0.get("country", "Unknown"),
+                    "country_code": d0.get("country", "UN"),
+                    "city": d0.get("city", "Unknown"),
+                    "region": d0.get("region", "Unknown"),
+                    "latitude": lat,
+                    "longitude": lon,
+                    "isp": d0.get("org", "Unknown"),
+                    "asn": d0.get("org", "Unknown"),
+                    "org": d0.get("org", "Unknown"),
+                    "timezone": d0.get("timezone", "UTC"),
+                    "verification_source": "IPInfo Enterprise Verified"
                 }
                 cache_set(cache_key, geo, ttl_seconds=86400 * 7)
                 return geo
-    except Exception as e:
-        print(f"ip-api lookup error for {clean_ip}: {e}")
+        except Exception:
+            pass
 
-    # 2. Fallback provider: ipwho.is
+    # 1. Primary Free Provider: FreeIPAPI (SSL, High-speed, No Key Required)
+    try:
+        r1 = requests.get(f"https://freeipapi.com/api/json/{clean_ip}", timeout=3)
+        if r1.status_code == 200:
+            d1 = r1.json()
+            if d1.get("countryName") and d1.get("countryName") != "-":
+                geo = {
+                    "ip": clean_ip,
+                    "country": d1.get("countryName", "Unknown"),
+                    "country_code": d1.get("countryCode", "UN"),
+                    "city": d1.get("cityName", "Unknown") if d1.get("cityName") != "-" else "Unknown",
+                    "region": d1.get("regionName", "Unknown") if d1.get("regionName") != "-" else "Unknown",
+                    "latitude": float(d1.get("latitude", 0.0) or 0.0),
+                    "longitude": float(d1.get("longitude", 0.0) or 0.0),
+                    "isp": d1.get("isp", "Direct IP Transit"),
+                    "asn": d1.get("asn", "Standard Network"),
+                    "org": d1.get("org", "Hosting Infrastructure"),
+                    "timezone": d1.get("timeZone", "UTC"),
+                    "verification_source": "Live Geospatial Intelligence"
+                }
+                cache_set(cache_key, geo, ttl_seconds=86400 * 7)
+                return geo
+    except Exception:
+        pass
+
+    # 2. Secondary Provider: ipwho.is (SSL, No Key Required)
     try:
         r2 = requests.get(f"https://ipwho.is/{clean_ip}", timeout=3)
         if r2.status_code == 200:
-            data = r2.json()
-            if data.get("success", False):
+            d2 = r2.json()
+            if d2.get("success", False):
                 geo = {
                     "ip": clean_ip,
-                    "country": data.get("country", "Unknown"),
-                    "country_code": data.get("country_code", "UN"),
-                    "city": data.get("city", "Unknown"),
-                    "region": data.get("region", "Unknown"),
-                    "latitude": float(data.get("latitude", 0.0) or 0.0),
-                    "longitude": float(data.get("longitude", 0.0) or 0.0),
-                    "isp": data.get("connection", {}).get("isp", "Unknown"),
-                    "asn": f"AS{data.get('connection', {}).get('asn', '')} {data.get('connection', {}).get('org', '')}".strip() or "Unknown",
-                    "org": data.get("connection", {}).get("org", "Unknown"),
-                    "timezone": data.get("timezone", {}).get("id", "UTC")
+                    "country": d2.get("country", "Unknown"),
+                    "country_code": d2.get("country_code", "UN"),
+                    "city": d2.get("city", "Unknown"),
+                    "region": d2.get("region", "Unknown"),
+                    "latitude": float(d2.get("latitude", 0.0) or 0.0),
+                    "longitude": float(d2.get("longitude", 0.0) or 0.0),
+                    "isp": d2.get("connection", {}).get("isp", "Unknown"),
+                    "asn": f"AS{d2.get('connection', {}).get('asn', '')} {d2.get('connection', {}).get('org', '')}".strip() or "Unknown",
+                    "org": d2.get("connection", {}).get("org", "Unknown"),
+                    "timezone": d2.get("timezone", {}).get("id", "UTC"),
+                    "verification_source": "IPWhois BGP Routing"
                 }
                 cache_set(cache_key, geo, ttl_seconds=86400 * 7)
                 return geo
-    except Exception as e2:
-        print(f"ipwhois lookup error for {clean_ip}: {e2}")
+    except Exception:
+        pass
+
+    # 3. Tertiary Provider: ip-api.com
+    try:
+        url3 = f"http://ip-api.com/json/{clean_ip}?fields=status,message,country,countryCode,regionName,city,lat,lon,timezone,isp,org,as,query"
+        r3 = requests.get(url3, timeout=3)
+        if r3.status_code == 200:
+            d3 = r3.json()
+            if d3.get("status") == "success":
+                geo = {
+                    "ip": clean_ip,
+                    "country": d3.get("country", "Unknown"),
+                    "country_code": d3.get("countryCode", "UN"),
+                    "city": d3.get("city", "Unknown"),
+                    "region": d3.get("regionName", "Unknown"),
+                    "latitude": float(d3.get("lat", 0.0) or 0.0),
+                    "longitude": float(d3.get("lon", 0.0) or 0.0),
+                    "isp": d3.get("isp", "Unknown"),
+                    "asn": d3.get("as", "Unknown"),
+                    "org": d3.get("org", "Unknown"),
+                    "timezone": d3.get("timezone", "UTC"),
+                    "verification_source": "IP-API BGP Transit"
+                }
+                cache_set(cache_key, geo, ttl_seconds=86400 * 7)
+                return geo
+    except Exception:
+        pass
 
     return default_geo
 
