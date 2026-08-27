@@ -2192,7 +2192,37 @@ def resolve_sender_identity_geolocation(
                 "verification_source": "Verified Corporate Headquarters Directory"
             }
 
-    # Tier 3: Live DNS (A Record) Resolution via Local Socket + Google DoH
+    # Tier 3: Check Country-Code Top-Level Domain (ccTLD) Sovereign Registry (100+ Sovereign Nations)
+    parts = sender_dom.split(".")
+    for length in [2, 1]:
+        if len(parts) >= length:
+            tld_cand = ".".join(parts[-length:])
+            if tld_cand in CCTLD_GLOBAL_DIRECTORY:
+                cc, c_name, city, reg, lat, lng, org_name, tz = CCTLD_GLOBAL_DIRECTORY[tld_cand]
+                # Attach live resolved IP if available
+                resolved_ip_cand = f"Registry .{tld_cand.upper()}"
+                try:
+                    ip_res = socket.gethostbyname(sender_dom)
+                    if is_public_ip(ip_res):
+                        resolved_ip_cand = ip_res
+                except Exception:
+                    pass
+                return {
+                    "ip": resolved_ip_cand,
+                    "country": c_name,
+                    "country_code": cc,
+                    "city": city,
+                    "region": reg,
+                    "latitude": lat,
+                    "longitude": lng,
+                    "isp": org_name,
+                    "asn": f"NIC-{cc}",
+                    "org": f"{sender_dom} ({org_name})",
+                    "timezone": tz,
+                    "verification_source": f"Authoritative .{tld_cand.upper()} ccTLD Sovereign Registry"
+                }
+
+    # Tier 4: Live DNS (A Record) Resolution via Local Socket + Google DoH
     resolved_ip = None
     try:
         resolved_ip = socket.gethostbyname(sender_dom)
@@ -2220,7 +2250,7 @@ def resolve_sender_identity_geolocation(
             geo["verification_source"] = "Live Authoritative DNS Query"
             return geo
 
-    # Tier 4: Live MX (Mail Exchanger) Resolution via Google DoH
+    # Tier 5: Live MX (Mail Exchanger) Resolution via Google DoH
     try:
         doh_url = f"https://dns.google/resolve?name={sender_dom}&type=MX"
         resp = requests.get(doh_url, timeout=2.5)
@@ -2238,28 +2268,6 @@ def resolve_sender_identity_geolocation(
                             return geo
     except Exception:
         pass
-
-    # Tier 5: Check Country-Code Top-Level Domain (ccTLD) Registry
-    parts = sender_dom.split(".")
-    for length in [2, 1]:
-        if len(parts) >= length:
-            tld_cand = ".".join(parts[-length:])
-            if tld_cand in CCTLD_GLOBAL_DIRECTORY:
-                cc, c_name, city, reg, lat, lng, org_name, tz = CCTLD_GLOBAL_DIRECTORY[tld_cand]
-                return {
-                    "ip": f"Registry .{tld_cand.upper()}",
-                    "country": c_name,
-                    "country_code": cc,
-                    "city": city,
-                    "region": reg,
-                    "latitude": lat,
-                    "longitude": lng,
-                    "isp": org_name,
-                    "asn": f"NIC-{cc}",
-                    "org": f"{sender_dom} ({org_name})",
-                    "timezone": tz,
-                    "verification_source": f"Authoritative .{tld_cand.upper()} ccTLD Registry"
-                }
 
     # Tier 6: WHOIS / RDAP Registrant Country Resolution with Coordinate Mapping
     try:
