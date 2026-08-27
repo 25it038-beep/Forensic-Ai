@@ -31,9 +31,9 @@ interface GeoMapProps {
   isSynthetic?: boolean;
 }
 
-const PRIMARY_TILE_URL   = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const FALLBACK_TILE_URL  = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_ATTRIB        = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
+const PRIMARY_TILE_URL   = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const FALLBACK_TILE_URL  = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_ATTRIB        = '&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 function makeCustomMarker(pt: GeoPoint): L.DivIcon {
   const type = pt.pointType || (pt.isOrigin ? "server" : "hop");
@@ -173,15 +173,17 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
 
       mapRef.current = map;
 
-      // Add Primary Tile Layer
+      // Add Primary Tile Layer (Esri Dark Canvas, No API key needed)
       const tileLayer = L.tileLayer(PRIMARY_TILE_URL, {
-        subdomains:  "abcd",
-        maxZoom:     19,
+        maxZoom:     16,
         attribution: TILE_ATTRIB,
       });
 
       tileLayer.on("tileerror", () => {
-        const fallback = L.tileLayer(FALLBACK_TILE_URL, { maxZoom: 18 });
+        const fallback = L.tileLayer(FALLBACK_TILE_URL, { 
+          maxZoom: 18,
+          className: "osm-dark-fallback" 
+        });
         fallback.addTo(map);
         layersRef.current.push(fallback);
       });
@@ -369,6 +371,9 @@ export function GeoMap({ points = [], height = 420 }: GeoMapProps) {
           100% { transform: scale(2.3); opacity: 0;   }
         }
         .leaflet-container { background: #060d17 !important; outline: none; }
+        .osm-dark-fallback {
+          filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
+        }
         .ofm-popup .leaflet-popup-content-wrapper {
           background: transparent !important;
           border: none !important;
