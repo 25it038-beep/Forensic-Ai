@@ -10,7 +10,7 @@ import {
   UserPlus,
   LogIn
 } from "lucide-react";
-import { SignInButton, SignUpButton, useUser } from "@clerk/react";
+import { SignInButton, SignUpButton, useUser } from "@clerk/clerk-react";
 
 interface SocOnboardingProps {
   onComplete: () => void;

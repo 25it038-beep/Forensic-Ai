@@ -175,3 +175,32 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 .leaflet-popup-tip {
   background: #0f172a !important;
 }
+
+/* Light theme text overrides to avoid invisible white text */
+html[data-theme="light"].light .text-white,
+html.light .text-white,
+[data-theme="light"] .text-white {
+  color: #0f172a !important;
+}
+[data-theme="light"] .text-slate-200,
+[data-theme="light"] .text-slate-300,
+[data-theme="light"] .text-slate-400,
+[data-theme="light"] .text-slate-500 {
+  color: #334155 !important;
+}
+[data-theme="light"] .text-slate-600 {
+  color: #475569 !important;
+}
+[data-theme="light"] .bg-white\/\[0\.03\],
+[data-theme="light"] .bg-white\/\[0\.04\],
+[data-theme="light"] .bg-white\/\[0\.06\],
+[data-theme="light"] .bg-white\/\[0\.08\] {
+  background-color: #f1f5f9 !important;
+}
+[data-theme="light"] .border-white\/\[0\.08\] {
+  border-color: #e2e8f0 !important;
+}
+[data-theme="light"] .border-white\/\[0\.06\] {
+  border-color: #e2e8f0 !important;
+}
+

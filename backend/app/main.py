@@ -196,12 +196,17 @@ def validate_email_text(text: str) -> str:
 @app.get("/api")
 @app.get("/fastapi")
 def root_endpoint() -> Dict[str, Any]:
-    return {"status": "online", "service": "Forensic AI Engine", "version": "3.0", "docs": "/docs", "health": "/health"}
+    return {"status": "online", "service": "Forensic AI Engine", "docs": "/docs", "health": "/health"}
 
 @app.get("/health")
 @app.get("/api/health")
 def health() -> Dict[str, str]:
     return {"status": "ok", "service": "forensic-ai"}
+
+@app.get("/api/demo/emails")
+def get_demo_emails():
+    from .services.demo_samples import get_demo_emails as ds
+    return {"samples": ds()}
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -210,7 +215,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled error on %s %s: %s", request.method, request.url.path, exc)
-    return JSONResponse(status_code=500, content={"detail": f"Internal server error: {exc}"})
+    return JSONResponse(status_code=500, content={"detail": "Internal server error. Please try again later."})
 
 # --- Auth Routes ---
 @app.post("/auth/register", response_model=UserResponse)

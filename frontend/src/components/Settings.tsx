@@ -75,17 +75,14 @@ export const Settings: React.FC = () => {
     }
   }, []);
 
-  // Persist theme/density instantly (other fields require Save)
+  // Persist all settings instantly and apply theme/density
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const current = raw ? JSON.parse(raw) : {};
-      const next = { ...current, theme: state.theme, density: state.density, apiUrl: current.apiUrl ?? state.apiUrl, notifications: current.notifications ?? state.notifications, sound: current.sound ?? state.sound, language: current.language ?? state.language, autoRefresh: current.autoRefresh ?? state.autoRefresh };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {}
     applyTheme(state.theme);
     document.documentElement.dataset.density = state.density;
-  }, [state.theme, state.density]);
+  }, [state]);
 
   const update = (patch: Partial<SettingsState>) => setState(s => ({ ...s, ...patch }));
 
@@ -278,7 +275,7 @@ export const Settings: React.FC = () => {
       {/* Footer actions */}
       <div className="flex items-center justify-between pt-2">
         <div className="text-[11px] text-slate-500">
-          <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Forensic AI v3.0</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Forensic AI</span>
           <span className="mx-2 text-white/10">·</span>
           <span>Security Operations Console</span>
         </div>

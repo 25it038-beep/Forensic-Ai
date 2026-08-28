@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Shield, Key, CheckCircle } from "lucide-react";
-import { SignIn, SignUp, UserProfile, useUser, useClerk } from "@clerk/react";
+import { SignIn, SignUp, UserProfile, useUser, useClerk } from "@clerk/clerk-react";
 
 interface AuthProps {
   onAuthChange?: () => void;

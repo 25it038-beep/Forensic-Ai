@@ -23,7 +23,7 @@ import {
   SignUpButton, 
   UserButton, 
   useUser 
-} from "@clerk/react";
+} from "@clerk/clerk-react";
 import { parseApiError, executeWithRetry, apiRequest } from "./config";
 
 interface StatsData {
@@ -233,13 +233,12 @@ export default function App() {
           {/* Logo & Header */}
           <div className="h-16 px-5 flex items-center justify-between border-b" style={{ borderColor: "var(--border)" }}>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-sky-500/10 border border-sky-500/30 text-sky-400 shrink-0">
-                <Shield className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-sky-500/10 border border-sky-500/30 shrink-0 overflow-hidden">
+                <img src="/forensic-logo.png" alt="Forensic AI Logo" className="w-8 h-8 object-cover" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-bold tracking-tight text-white font-mono">FORENSIC AI</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">v3.0</span>
                 </div>
                 <p className="text-[10px] text-slate-400 font-mono -mt-0.5">SOC Threat Intel</p>
               </div>
@@ -402,19 +401,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Quick Tour / Gateway Link */}
-            <button
-              onClick={() => {
-                localStorage.removeItem("soc_analyst_guest");
-                setShowOnboarding(true);
-              }}
-              className="px-2.5 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-mono text-[11px] flex items-center gap-1 transition"
-              title="Open Platform Onboarding & Overview"
-            >
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span className="hidden xl:inline">TOUR</span>
-            </button>
-
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-[12px]" style={{ background: "var(--panel)", borderColor: "var(--border)", color: "var(--muted)" }}>
               <span className="tabular-nums font-medium font-mono" style={{ color: "var(--text-soft)" }}>{time.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full" style={{ background: "var(--panel-soft)", color: "var(--faint)" }}>IST</span>
@@ -469,6 +455,10 @@ export default function App() {
             <Settings />
           )}
         </main>
+        <footer className="mt-auto border-t text-[11px] text-slate-500 font-mono py-3 px-5 md:px-7 flex items-center justify-between" style={{ background: "var(--panel)", borderColor: "var(--border)" }}>
+          <span>Developed by Team: VisionX🛡️</span>
+          <span className="hidden sm:inline">Forensic AI · SOC Threat Intel</span>
+        </footer>
       </div>
       <ChatPanel />
     </div>
