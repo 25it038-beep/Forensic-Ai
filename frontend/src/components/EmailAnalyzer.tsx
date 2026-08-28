@@ -264,7 +264,7 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
     { id: "timeline", label: "Forensic Timeline", icon: Radio },
     { id: "ip_forensics", label: "IP Forensics", icon: Server },
     { id: "url_forensics", label: "URL Analysis", icon: Globe },
-    { id: "geo", label: "Dual Geolocation", icon: MapPin },
+    { id: "geo", label: "Geolocation", icon: MapPin },
     { id: "mitre", label: "MITRE ATT&CK", icon: Cpu },
     { id: "evidence", label: "Evidence & Hashes", icon: Hash },
   ] as const;
@@ -1161,7 +1161,7 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
                 <div className="space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
-                      {mode === "email" ? "Dual-Node Geolocation Satellite Routing" : "Domain Geolocation"}
+                      {mode === "email" ? "Geolocation Satellite Routing" : "Domain Geolocation"}
                     </h4>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
                       {mode === "email" ? "Sender / Receiver / Server" : "Domain Location"}
