@@ -153,6 +153,9 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
     || emailRes?.forensics?.sender_geolocation
     || urlRes?.sender_geolocation;
 
+  const receiverGeo = emailRes?.receiver_geolocation
+    || emailRes?.forensics?.receiver_geolocation;
+
   // Check if geolocation appears synthetic/unverified
   const isSyntheticGeo = Boolean(
     serverGeo && (serverGeo.country === "Unknown" || serverGeo.ip === "Unknown" || serverGeo.verification_source === undefined)
@@ -191,6 +194,27 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
         isOrigin: false,
         isSynthetic: false,
       });
+    }
+
+    // 1b. Receiver Point (Green)
+    if (receiverGeo?.latitude && receiverGeo?.longitude && receiverGeo.latitude !== 0) {
+      const key = `receiver_${receiverGeo.latitude.toFixed(2)},${receiverGeo.longitude.toFixed(2)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        pts.push({
+          lat: receiverGeo.latitude,
+          lng: receiverGeo.longitude,
+          label: "Receiver Identity",
+          pointType: "receiver",
+          city: receiverGeo.city,
+          country: receiverGeo.country,
+          ip: receiverGeo.ip,
+          isp: receiverGeo.isp,
+          org: receiverGeo.org || "Recipient Domain",
+          isOrigin: false,
+          isSynthetic: false,
+        });
+      }
     }
 
     // 2. Server Origin Point (Red)

@@ -234,6 +234,7 @@ class PredictResponse(BaseModel):
     # Advanced Forensics & Geolocation
     geolocation: Optional[GeoLocationResult] = None
     sender_geolocation: Optional[GeoLocationResult] = None
+    receiver_geolocation: Optional[GeoLocationResult] = None
     forensics: Optional[DigitalForensicsResult] = None
     
     # OCR Preview (Extracted text if scanned)

@@ -272,6 +272,8 @@ async def predict_email(
             detected_sender = detected_sender.split("<")[0].strip().strip('"\'') + " <" + detected_sender.split("<")[1].split(">")[0] + ">"
         except Exception:
             pass
+    recipient_match = re.search(r'To:\s*([^\r\n]+)', raw_source, re.IGNORECASE)
+    detected_recipient = recipient_match.group(1).strip() if recipient_match else ""
     subj_match = re.search(r'Subject:\s*([^\r\n]+)', raw_source, re.IGNORECASE)
     detected_subject = subj_match.group(1).strip() if subj_match else "Raw Text / Email Stream"
     url_forensics_dict = None
@@ -311,6 +313,15 @@ async def predict_email(
     )
     origin_geo = GeoLocationResult(**origin_geo_dict) if origin_geo_dict else None
     sender_geo = GeoLocationResult(**sender_geo_dict) if sender_geo_dict else None
+    # Resolve recipient geolocation from To: header
+    receiver_geo = None
+    if detected_recipient and "@" in detected_recipient:
+        try:
+            rec_geo_dict = resolve_sender_identity_geolocation(detected_recipient, raw_source, "")
+            if rec_geo_dict:
+                receiver_geo = GeoLocationResult(**rec_geo_dict)
+        except Exception:
+            receiver_geo = None
     if sender_geo and origin_geo and sender_geo.country_code != origin_geo.country_code:
         if sender_geo.country not in ["Unknown", "Private Network"] and origin_geo.country not in ["Unknown", "Private Network"]:
             forensic_flags.append(
@@ -379,7 +390,7 @@ async def predict_email(
         "id": db_history.id, "user_id": db_history.user_id, "subject": db_history.subject, "sender": db_history.sender,
         "created_at": db_history.created_at, "threat_type": db_history.threat_type,
         "virustotal_results": vt_result, "whois_results": whois_result, "email_auth_results": EmailAuthResult(),
-        "attachment_analysis": [], "llm_analysis": llm_analysis, "geolocation": origin_geo, "sender_geolocation": sender_geo, "forensics": forensics_obj
+        "attachment_analysis": [], "llm_analysis": llm_analysis, "geolocation": origin_geo, "sender_geolocation": sender_geo, "receiver_geolocation": receiver_geo, "forensics": forensics_obj
     })
     return result
 
