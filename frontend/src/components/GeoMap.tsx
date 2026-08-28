@@ -8,12 +8,7 @@ import {
   Maximize2, 
   Minimize2, 
   Compass, 
-  Navigation, 
-  Radio, 
-  Server, 
-  User, 
-  Activity, 
-  ShieldCheck 
+  Navigation
 } from "lucide-react";
 
 // Fix Leaflet default icon paths
@@ -319,7 +314,6 @@ export function GeoMap({ points = [], height = 460 }: GeoMapProps) {
   useEffect(() => {
     if (!mapRef.current || !layerGroupRef.current) return;
 
-    const map = mapRef.current;
     const lg = layerGroupRef.current;
     lg.clearLayers();
 

@@ -5,7 +5,7 @@ export const cleanApiUrl = (url: string) => (url ? url.trim().replace(/\/+$/, ''
 export const DEFAULT_PROD_URL = 'https://forensic-ai-2.onrender.com';
 export const RAW_API_URL = cleanApiUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '');
 const isLocalEnv = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '');
-export const API_URL = RAW_API_URL || (isLocalEnv ? 'http://127.0.0.1:8001' : DEFAULT_PROD_URL);
+export const API_URL = RAW_API_URL || (isLocalEnv ? 'http://127.0.0.1:8000' : DEFAULT_PROD_URL);
 
 /**
  * Dynamically resolves all candidate API URLs in order of priority:
@@ -37,9 +37,9 @@ export function getActiveApiUrls(): string[] {
     }
   };
 
-  // When running locally, strictly and exclusively talk to http://127.0.0.1:8001
+  // When running locally, strictly and exclusively talk to http://127.0.0.1:8000
   if (isLocal) {
-    return ['http://127.0.0.1:8001'];
+    return ['http://127.0.0.1:8000'];
   }
 
   // When running in production (Vercel / Netlify / Render)

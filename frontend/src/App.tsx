@@ -8,8 +8,7 @@ import {
   Settings as SettingsIcon, 
   ChevronRight, 
   Users, 
-  RefreshCw,
-  Sparkles
+  RefreshCw
 } from "lucide-react";
 import { Dashboard } from "./components/Dashboard";
 import { EmailAnalyzer } from "./components/EmailAnalyzer";
