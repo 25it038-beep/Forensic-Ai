@@ -177,8 +177,8 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
     const pts: GeoPoint[] = [];
     const seen = new Set<string>();
 
-    // 1. Sender Point (Purple)
-    if (senderGeo?.latitude && senderGeo?.longitude && senderGeo.latitude !== 0) {
+    // 1. Sender Point (Purple) - Email mode only
+    if (mode === "email" && senderGeo?.latitude && senderGeo?.longitude && senderGeo.latitude !== 0) {
       const key = `sender_${senderGeo.latitude.toFixed(2)},${senderGeo.longitude.toFixed(2)}`;
       seen.add(key);
       pts.push({
@@ -196,8 +196,8 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
       });
     }
 
-    // 1b. Receiver Point (Green)
-    if (receiverGeo?.latitude && receiverGeo?.longitude && receiverGeo.latitude !== 0) {
+    // 1b. Receiver Point (Green) - Email mode only
+    if (mode === "email" && receiverGeo?.latitude && receiverGeo?.longitude && receiverGeo.latitude !== 0) {
       const key = `receiver_${receiverGeo.latitude.toFixed(2)},${receiverGeo.longitude.toFixed(2)}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -1161,12 +1161,37 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
                 <div className="space-y-4 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
-                      Dual-Node Geolocation Satellite Routing
+                      {mode === "email" ? "Dual-Node Geolocation Satellite Routing" : "Domain Geolocation"}
                     </h4>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                      Leaflet Interactive Arc
+                      {mode === "email" ? "Sender / Receiver / Server" : "Domain Location"}
                     </span>
                   </div>
+                  {mode === "email" && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {senderGeo && (
+                        <div className="p-3 rounded-xl border border-purple-500/30 bg-purple-500/5">
+                          <div className="text-[10px] font-mono uppercase text-purple-400">Sender Identity</div>
+                          <div className="text-white font-mono text-sm mt-1">{senderGeo.city || "N/A"}, {senderGeo.country || "N/A"}</div>
+                          <div className="text-[11px] text-slate-400 font-mono truncate">{senderGeo.ip} • {senderGeo.verification_source || "Domain"}</div>
+                        </div>
+                      )}
+                      {receiverGeo && (
+                        <div className="p-3 rounded-xl border border-green-500/30 bg-green-500/5">
+                          <div className="text-[10px] font-mono uppercase text-green-400">Receiver Identity</div>
+                          <div className="text-white font-mono text-sm mt-1">{receiverGeo.city || "N/A"}, {receiverGeo.country || "N/A"}</div>
+                          <div className="text-[11px] text-slate-400 font-mono truncate">{receiverGeo.ip} • {receiverGeo.verification_source || "Domain"}</div>
+                        </div>
+                      )}
+                      {serverGeo && (
+                        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5">
+                          <div className="text-[10px] font-mono uppercase text-red-400">Transmission Server</div>
+                          <div className="text-white font-mono text-sm mt-1">{serverGeo.city || "N/A"}, {serverGeo.country || "N/A"}</div>
+                          <div className="text-[11px] text-slate-400 font-mono truncate">{serverGeo.ip} • {serverGeo.verification_source || "Header"}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <GeoMap points={mapPoints} height={420} />
                 </div>
               )}
