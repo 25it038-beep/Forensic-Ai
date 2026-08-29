@@ -23,7 +23,7 @@ export interface GeoPoint {
   lat: number;
   lng: number;
   label: string;
-  pointType?: "sender" | "server" | "hop";
+  pointType?: "sender" | "server" | "hop" | "receiver";
   city?: string;
   country?: string;
   ip?: string;

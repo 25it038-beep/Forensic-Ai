@@ -27,7 +27,7 @@ interface CorrelationGraph { nodes: GraphNode[]; links: GraphLink[]; }
 interface DigitalForensicsResult { header_forensics?: HeaderForensics; attachment_forensics: AttachmentForensics[]; url_forensics?: UrlForensics; origin_geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; forensic_risk_score: number; forensic_flags: string[]; bec_analysis?: BecAnalysisResult; attribution?: AttributionIntelligence; correlation_graph?: CorrelationGraph; extracted_urls?: string[]; }
 interface MitreMapping { id: string; name: string; description: string; }
 interface LlmAnalysisResult { danger_explanation: string; social_engineering_techniques: string[]; indicators_of_compromise: string[]; safety_recommendations: string[]; mitre_mappings: MitreMapping[]; }
-interface PredictResponse { id?: number; subject?: string; sender?: string; classification: string; confidence_score: number; risk_score: number; explanation: string; detected_indicators: Record<string, boolean>; highlighted_text: string; xai_keywords?: KeywordImportance[]; created_at?: string; threat_type?: string; virustotal_results?: VirusTotalResult; whois_results?: WhoisResult; email_auth_results?: EmailAuthResult; attachment_analysis?: AttachmentInfo[]; llm_analysis?: LlmAnalysisResult; geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; forensics?: DigitalForensicsResult; ocr_extracted_text?: string; }
+interface PredictResponse { id?: number; subject?: string; sender?: string; classification: string; confidence_score: number; risk_score: number; explanation: string; detected_indicators: Record<string, boolean>; highlighted_text: string; xai_keywords?: KeywordImportance[]; created_at?: string; threat_type?: string; virustotal_results?: VirusTotalResult; whois_results?: WhoisResult; email_auth_results?: EmailAuthResult; attachment_analysis?: AttachmentInfo[]; llm_analysis?: LlmAnalysisResult; geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; receiver_geolocation?: GeoLocationResult; forensics?: DigitalForensicsResult; ocr_extracted_text?: string; }
 interface UrlAnalyzeResponse { id?: number; url: string; domain: string; risk_score: number; status: string; reasons: string[]; threat_type: string; advice: string; virustotal_results?: VirusTotalResult; whois_results?: WhoisResult; geolocation?: GeoLocationResult; sender_geolocation?: GeoLocationResult; forensics?: DigitalForensicsResult; }
 interface Props { onScanCompleted: () => void; initialText?: string | null; }
 
@@ -153,8 +153,7 @@ export const EmailAnalyzer: React.FC<Props> = ({ onScanCompleted, initialText })
     || emailRes?.forensics?.sender_geolocation
     || urlRes?.sender_geolocation;
 
-  const receiverGeo = emailRes?.receiver_geolocation
-    || emailRes?.forensics?.receiver_geolocation;
+  const receiverGeo = emailRes?.receiver_geolocation;
 
   // Check if geolocation appears synthetic/unverified
   const isSyntheticGeo = Boolean(
